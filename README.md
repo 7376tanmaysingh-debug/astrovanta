@@ -13,6 +13,7 @@ Across the Indo-Gangetic Plain around Ayodhya, where has June–September rainfa
 - Estimates each location's trend with the Theil–Sen slope.
 - Estimates a 95% interval with a circular five-year moving-block bootstrap. A trend is marked as increasing or decreasing only when the interval excludes zero.
 - Clicking a regional grid cell loads its annual monsoon series, trend estimate, and confidence interval into the detail chart; the five city references remain selectable.
+- Switch the map to a selected-year rainfall view and scrub from 1981 to 2025; the same rainfall color scale is used across grid cells and city references, while tooltips compare each cell with its 1981–2025 mean.
 - Shows the regional grid trend classification and 95% interval on map-cell tooltips, alongside selectable city annual series, confidence intervals, and CSV export.
 - Exports annual rainfall, trend estimates, 95% intervals, classification, and coordinates for each regional grid cell as a CSV.
 - Writes a data-driven science story comparing regional grid signals with the five city references, while stating model and study-area caveats.
