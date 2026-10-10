@@ -108,36 +108,95 @@ async function loadAllData() {
 async function loadRegionalGrid() {
   if (gridLoading) return;
   gridLoading = true;
-  setGridStatus("Requesting the NASA POWER daily regional grid…");
+  setGridStatus("Preparing NASA POWER regional grid…");
   try {
-    let rawCells = [];
+    let cached = null;
     try {
-      const cached = JSON.parse(localStorage.getItem(GRID_CACHE_KEY) || "null");
-      if (cached && cached.savedAt && Date.now() - cached.savedAt < 24 * 60 * 60 * 1000 &&
-          Array.isArray(cached.cells) && cached.cells.length) {
-        rawCells = cached.cells;
-      }
+      cached = JSON.parse(localStorage.getItem(GRID_CACHE_KEY) || "null");
     } catch (_) {}
 
+    const cacheIsFresh = cached && cached.savedAt &&
+      Date.now() - cached.savedAt < 24 * 60 * 60 * 1000 &&
+      Array.isArray(cached.cells) && cached.cells.length;
+    const hasCompleteCache = cacheIsFresh && cached.cells.every(function (cell) {
+      return Array.isArray(cell.seasons) && cell.seasons.length >= 40;
+    });
+    let rawCells = hasCompleteCache ? cached.cells : [];
+
     if (!rawCells.length) {
-      const url = new URL(REGIONAL_API_BASE);
-      url.searchParams.set("parameters", "PRECTOTCORR");
-      url.searchParams.set("community", "AG");
-      url.searchParams.set("latitude-min", GRID_BOUNDS.latitudeMin);
-      url.searchParams.set("latitude-max", GRID_BOUNDS.latitudeMax);
-      url.searchParams.set("longitude-min", GRID_BOUNDS.longitudeMin);
-      url.searchParams.set("longitude-max", GRID_BOUNDS.longitudeMax);
-      url.searchParams.set("start", String(START_YEAR) + "0101");
-      url.searchParams.set("end", String(END_YEAR) + "1231");
-      url.searchParams.set("format", "JSON");
-      const response = await fetch(url.toString(), { headers: { Accept: "application/json" } });
-      const responseBody = await response.text();
-      if (!response.ok) throw new Error(describeApiError(response, responseBody, "NASA POWER regional request failed"));
-      const payload = JSON.parse(responseBody);
-      rawCells = extractRegionalCells(payload);
-      if (rawCells.length < 10) throw new Error("NASA POWER returned too few regional grid cells.");
+      const cellsByKey = new Map();
+      let completedThrough = START_YEAR - 1;
+      if (cacheIsFresh) {
+        const cachedYear = Number(cached.completedThrough);
+        if (Number.isInteger(cachedYear) && cachedYear >= START_YEAR - 1 && cachedYear <= END_YEAR) {
+          completedThrough = cachedYear;
+          cached.cells.forEach(function (cell) {
+            if (!cell || !Number.isFinite(cell.lat) || !Number.isFinite(cell.lon) || !Array.isArray(cell.seasons)) return;
+            cellsByKey.set(cell.lat.toFixed(3) + "|" + cell.lon.toFixed(3), {
+              lat: cell.lat,
+              lon: cell.lon,
+              seasons: cell.seasons.slice()
+            });
+          });
+        }
+      }
+
+      for (let year = completedThrough + 1; year <= END_YEAR; year += 1) {
+        setGridStatus("Requesting regional rainfall · " + year + " of " + END_YEAR + "…");
+        const url = new URL(REGIONAL_API_BASE);
+        url.searchParams.set("parameters", "PRECTOTCORR");
+        url.searchParams.set("community", "AG");
+        url.searchParams.set("latitude-min", GRID_BOUNDS.latitudeMin);
+        url.searchParams.set("latitude-max", GRID_BOUNDS.latitudeMax);
+        url.searchParams.set("longitude-min", GRID_BOUNDS.longitudeMin);
+        url.searchParams.set("longitude-max", GRID_BOUNDS.longitudeMax);
+        url.searchParams.set("start", String(year) + "0101");
+        url.searchParams.set("end", String(year) + "1231");
+        url.searchParams.set("format", "JSON");
+        const response = await fetch(url.toString(), { headers: { Accept: "application/json" } });
+        const responseBody = await response.text();
+        if (!response.ok) {
+          throw new Error(describeApiError(response, responseBody, "NASA POWER regional request for " + year + " failed"));
+        }
+        const payload = JSON.parse(responseBody);
+        const annualCells = extractRegionalSeason(payload, year);
+        if (annualCells.length < 10) {
+          throw new Error("NASA POWER returned too few regional grid cells for " + year + ".");
+        }
+
+        annualCells.forEach(function (cell) {
+          const key = cell.lat.toFixed(3) + "|" + cell.lon.toFixed(3);
+          let existing = cellsByKey.get(key);
+          if (!existing) {
+            existing = { lat: cell.lat, lon: cell.lon, seasons: [] };
+            cellsByKey.set(key, existing);
+          }
+          if (!existing.seasons.some(function (season) { return season.year === year; })) {
+            existing.seasons.push(cell.seasons[0]);
+          }
+        });
+
+        completedThrough = year;
+        try {
+          localStorage.setItem(GRID_CACHE_KEY, JSON.stringify({
+            savedAt: Date.now(),
+            completedThrough: completedThrough,
+            cells: Array.from(cellsByKey.values())
+          }));
+        } catch (_) {}
+        if (year < END_YEAR) {
+          await new Promise(function (resolve) { window.setTimeout(resolve, 120); });
+        }
+      }
+      rawCells = Array.from(cellsByKey.values()).filter(function (cell) {
+        return cell.seasons.length >= 40;
+      });
       try {
-        localStorage.setItem(GRID_CACHE_KEY, JSON.stringify({ savedAt: Date.now(), cells: rawCells }));
+        localStorage.setItem(GRID_CACHE_KEY, JSON.stringify({
+          savedAt: Date.now(),
+          completedThrough: END_YEAR,
+          cells: rawCells
+        }));
       } catch (_) {}
     }
 
@@ -218,7 +277,7 @@ function describeApiError(response, responseBody, label) {
   detail = detail.slice(0, 280);
   return label + " (" + response.status + ")" + (detail ? ": " + detail : ".");
 }
-function extractRegionalCells(payload) {
+function extractRegionalSeason(payload, year) {
   const features = payload && Array.isArray(payload.features) ? payload.features : [];
   const cells = [];
   const seen = new Set();
@@ -243,10 +302,10 @@ function extractRegionalCells(payload) {
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
     const key = lat.toFixed(3) + "|" + lon.toFixed(3);
     if (seen.has(key)) return;
-    const seasons = buildMonsoonTotals(daily);
-    if (seasons.length < 40) return;
+    const season = buildMonsoonTotals(daily).find(function (point) { return point.year === year; });
+    if (!season) return;
     seen.add(key);
-    cells.push({ lat: lat, lon: lon, seasons: seasons });
+    cells.push({ lat: lat, lon: lon, seasons: [season] });
   });
   return cells;
 }
