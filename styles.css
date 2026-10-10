@@ -83,7 +83,7 @@ h3 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -.02em; }
 .leaflet-control-attribution { font-size: 9px !important; opacity: .84; }
 .leaflet-control-zoom a { background: #102136 !important; color: var(--text) !important; border-color: var(--line) !important; }
 .leaflet-popup-content-wrapper, .leaflet-popup-tip { background: #102136; color: var(--text); }
-.leaflet-popup-content { font: 12px/1.55 inherit; }
+.leaflet-popup-content { font-family: inherit; font-size: 12px; line-height: 1.55; }
 .map-legend { display: flex; flex-wrap: wrap; gap: 17px; padding: 14px 0 17px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 10px; }
 .map-legend span { display: inline-flex; align-items: center; gap: 7px; }
 .legend-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
@@ -180,3 +180,8 @@ h3 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -.02em; }
   .method-strip > a { grid-column: 2; }
   .footer { flex-direction: column; line-height: 1.6; }
 }
+
+.retry-button { border: 1px solid rgba(215,255,100,.38); color: var(--lime); background: rgba(215,255,100,.06); border-radius: 999px; padding: 5px 9px; font-size: 9px; cursor: pointer; }
+.retry-button:hover { background: rgba(215,255,100,.13); }
+.retry-button[hidden] { display: none; }
+.map-fallback { min-height: 100%; padding: 24px; display: grid; place-items: center; color: var(--muted); font-size: 12px; line-height: 1.6; text-align: center; }

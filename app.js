@@ -17,10 +17,12 @@ let resultsById = {};
 let selectedId = "ayodhya";
 let mapInstance = null;
 let mapMarkers = {};
+let trendById = {};
 
 document.addEventListener("DOMContentLoaded", function () {
   initMap();
   document.getElementById("download-csv").addEventListener("click", downloadCsv);
+  document.getElementById("retry-load").addEventListener("click", loadAllData);
   loadAllData();
 });
 
@@ -42,6 +44,8 @@ function setStatus(message, kind) {
   const status = document.getElementById("data-status");
   status.className = "section-status" + (kind ? " " + kind : "");
   document.getElementById("status-text").textContent = message;
+  const retry = document.getElementById("retry-load");
+  if (retry) retry.hidden = kind !== "error";
 }
 
 async function loadAllData() {
@@ -56,6 +60,15 @@ async function loadAllData() {
       const firstFailure = settled.find(function (item) { return item.status === "rejected"; });
       throw (firstFailure && firstFailure.reason) || new Error("No location data was returned.");
     }
+    if (!resultsById[selectedId]) {
+      const firstAvailable = LOCATIONS.find(function (location) { return Boolean(resultsById[location.id]); });
+      if (firstAvailable) selectedId = firstAvailable.id;
+    }
+    trendById = {};
+    Object.keys(resultsById).forEach(function (id) {
+      const location = resultsById[id].location;
+      trendById[id] = bootstrapInterval(resultsById[id].seasons, location.seed);
+    });
     renderLocations();
     renderMarkers();
     selectLocation(selectedId);
@@ -217,7 +230,7 @@ function renderLocations() {
   const root = document.getElementById("location-list");
   root.innerHTML = LOCATIONS.map(function (location) {
     const result = resultsById[location.id];
-    const trend = result ? bootstrapInterval(result.seasons, location.seed) : null;
+    const trend = result ? trendById[location.id] : null;
     const signal = trend ? getSignal(trend) : "unclear";
     return '<button type="button" class="site-row' + (location.id === selectedId ? " active" : "") + '" data-location="' + location.id + '">' +
       '<span class="site-row-dot" style="background:' + signalColor(signal) + '"></span>' +
@@ -235,7 +248,7 @@ function renderMarkers() {
   mapMarkers = {};
   LOCATIONS.forEach(function (location) {
     const result = resultsById[location.id];
-    const trend = result ? bootstrapInterval(result.seasons, location.seed) : null;
+    const trend = result ? trendById[location.id] : null;
     const signal = trend ? getSignal(trend) : "unclear";
     const marker = L.circleMarker([location.lat, location.lon], {
       radius: location.id === selectedId ? 9 : 7,
@@ -259,7 +272,7 @@ function selectLocation(id) {
   selectedId = id;
   const location = result.location;
   const seasons = result.seasons;
-  const trend = bootstrapInterval(seasons, location.seed);
+  const trend = trendById[id] || bootstrapInterval(seasons, location.seed);
   const signal = getSignal(trend);
   const mean = seasons.reduce(function (sum, point) { return sum + point.rainfall; }, 0) / seasons.length;
   const first = seasons.slice(0, Math.min(10, seasons.length));

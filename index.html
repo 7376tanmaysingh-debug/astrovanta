@@ -52,7 +52,7 @@
             <h2 id="analysis-heading">Where is the rainfall story changing?</h2>
           </div>
           <div class="section-status" id="data-status" role="status" aria-live="polite">
-            <span class="status-dot"></span><span id="status-text">Preparing NASA POWER request…</span>
+            <span class="status-dot"></span><span id="status-text">Preparing NASA POWER request…</span><button type="button" id="retry-load" class="retry-button" hidden>Retry</button>
           </div>
         </div>
 
@@ -110,7 +110,7 @@
             </div>
 
             <div class="confidence-row">
-              <div class="confidence-icon" aria-hidden="true">↗</div>
+              <div id="confidence-icon" class="confidence-icon" aria-hidden="true">↗</div>
               <div>
                 <p class="panel-label">95% BLOCK-BOOTSTRAP INTERVAL</p>
                 <strong id="interval-value">Waiting for data</strong>
