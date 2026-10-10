@@ -528,6 +528,8 @@ function renderRegionalFindings() {
   document.getElementById("grid-largest-positive").textContent = formatGridExtreme(largestPositive);
   document.getElementById("grid-largest-negative").textContent = formatGridExtreme(largestNegative);
   root.hidden = false;
+  const downloadButton = document.getElementById("download-grid-csv");
+  if (downloadButton) downloadButton.hidden = false;
 }
 
 function renderScienceStory() {
@@ -535,6 +537,8 @@ function renderScienceStory() {
   if (!root) return;
   if (!regionalGrid.length) {
     root.hidden = true;
+    const downloadButton = document.getElementById("download-grid-csv");
+    if (downloadButton) downloadButton.hidden = true;
     return;
   }
 
