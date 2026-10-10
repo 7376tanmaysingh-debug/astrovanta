@@ -8,7 +8,7 @@ Across the Indo-Gangetic Plain around Ayodhya, where has June–September rainfa
 
 ## What this prototype does
 
-- Fetches daily precipitation for a regional NASA POWER bounding-box grid and for five city reference series: Ayodhya, Lucknow, Prayagraj, Gorakhpur, and Varanasi.
+- Fetches daily precipitation for a regional NASA POWER bounding-box grid in one-calendar-year requests (the regional daily API limit is 366 days), plus five city reference series: Ayodhya, Lucknow, Prayagraj, Gorakhpur, and Varanasi.
 - Adds daily rainfall from June 1 through September 30 into a monsoon total for each complete year from 1981 to 2025.
 - Estimates each location's trend with the Theil–Sen slope.
 - Estimates a 95% interval with a circular five-year moving-block bootstrap. A trend is marked as increasing or decreasing only when the interval excludes zero.
@@ -24,7 +24,7 @@ Serve this folder over HTTP so the browser can request NASA POWER:
 2. Run: python -m http.server 8000
 3. Visit: http://localhost:8000
 
-The map uses Leaflet and OpenStreetMap tiles. NASA data is requested directly from NASA POWER. The app keeps a one-day browser cache to avoid repeat downloads.
+The map uses Leaflet and OpenStreetMap tiles. NASA data is requested directly from NASA POWER. City data and completed regional years are cached in browser storage for one day; an interrupted regional download resumes from its last completed year.
 
 ## Data and method
 
