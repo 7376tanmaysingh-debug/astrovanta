@@ -1,0 +1,84 @@
+name: Validate and deploy AstroVanta
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Check JavaScript syntax
+        run: node --check app.js
+
+      - name: Check HTML IDs used by the app
+        run: |
+          python - <<'PY'
+          from html.parser import HTMLParser
+          from pathlib import Path
+          import re
+          import sys
+
+          class IdParser(HTMLParser):
+              def __init__(self):
+                  super().__init__()
+                  self.ids = []
+
+              def handle_starttag(self, tag, attrs):
+                  self.ids.extend(value for name, value in attrs if name == "id")
+
+          html = Path("index.html").read_text(encoding="utf-8")
+          app = Path("app.js").read_text(encoding="utf-8")
+          parser = IdParser()
+          parser.feed(html)
+
+          duplicates = sorted({item for item in parser.ids if parser.ids.count(item) > 1})
+          references = set(re.findall(r"""getElementById\(["']([^"']+)["']\)""", app))
+          missing = sorted(references - set(parser.ids))
+
+          if duplicates or missing:
+              if duplicates:
+                  print("Duplicate HTML IDs:", ", ".join(duplicates))
+              if missing:
+                  print("JavaScript references missing from index.html:", ", ".join(missing))
+              sys.exit(1)
+
+          print(f"Checked {len(parser.ids)} unique HTML IDs and {len(references)} JavaScript references.")
+          PY
+
+  deploy:
+    needs: validate
+    if: github.ref == 'refs/heads/main'
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload site files
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: .
+
+      - name: Deploy site
+        id: deployment
+        uses: actions/deploy-pages@v4
