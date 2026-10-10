@@ -87,6 +87,7 @@ async function loadAllData() {
     });
     renderLocations();
     renderRegionalSummary();
+    renderScienceStory();
     renderMarkers();
     selectLocation(selectedId);
     document.getElementById("download-csv").disabled = false;
@@ -227,11 +228,13 @@ async function loadRegionalGrid() {
     renderRegionalGrid();
     renderMarkers();
     renderRegionalFindings();
+    renderScienceStory();
     setGridStatus("NASA POWER trend grid loaded · " + regionalGrid.length + " cells · hover a cell for its interval", "ready");
   } catch (error) {
     regionalGrid = [];
     renderRegionalGrid();
     renderRegionalFindings();
+    renderScienceStory();
     setGridStatus("Regional grid unavailable · city trends remain available. " + (error.message || "Retry the request."), "error");
   } finally {
     gridLoading = false;
@@ -523,6 +526,59 @@ function renderRegionalFindings() {
     decreasing.length + " a decreasing signal, and " + unclear.length + " an unclear signal.";
   document.getElementById("grid-largest-positive").textContent = formatGridExtreme(largestPositive);
   document.getElementById("grid-largest-negative").textContent = formatGridExtreme(largestNegative);
+  root.hidden = false;
+}
+
+function renderScienceStory() {
+  const root = document.getElementById("science-story");
+  if (!root) return;
+  if (!regionalGrid.length) {
+    root.hidden = true;
+    return;
+  }
+
+  const increasing = regionalGrid.filter(function (cell) { return getSignal(cell.trend) === "up"; }).length;
+  const decreasing = regionalGrid.filter(function (cell) { return getSignal(cell.trend) === "down"; }).length;
+  const unclear = regionalGrid.length - increasing - decreasing;
+  let headline = "The sampled grid has a mixed rainfall signal.";
+  if (increasing > 0 && decreasing === 0 && unclear > 0) {
+    headline = "Some cells show an increasing signal; many remain unclear.";
+  } else if (decreasing > 0 && increasing === 0 && unclear > 0) {
+    headline = "Some cells show a decreasing signal; many remain unclear.";
+  } else if (increasing > 0 && decreasing > 0) {
+    headline = "The grid contains contrasting rainfall signals.";
+  } else if (increasing > 0 && unclear === 0 && decreasing === 0) {
+    headline = "The sampled grid shows an increasing rainfall signal.";
+  } else if (decreasing > 0 && unclear === 0 && increasing === 0) {
+    headline = "The sampled grid shows a decreasing rainfall signal.";
+  } else if (increasing === 0 && decreasing === 0) {
+    headline = "The sampled grid remains inconclusive.";
+  }
+
+  document.getElementById("science-story-title").textContent = headline;
+  document.getElementById("science-story-grid").textContent =
+    "Across " + regionalGrid.length + " regional cells, " + increasing + " show an increasing signal, " +
+    decreasing + " a decreasing signal, and " + unclear + " remain unclear.";
+
+  const cityCells = LOCATIONS.filter(function (location) {
+    return Boolean(resultsById[location.id] && trendById[location.id]);
+  }).map(function (location) { return trendById[location.id]; });
+  if (cityCells.length) {
+    const cityIncreasing = cityCells.filter(function (trend) { return getSignal(trend) === "up"; }).length;
+    const cityDecreasing = cityCells.filter(function (trend) { return getSignal(trend) === "down"; }).length;
+    const cityUnclear = cityCells.length - cityIncreasing - cityDecreasing;
+    document.getElementById("science-story-cities").textContent =
+      "City references (" + cityCells.length + " of " + LOCATIONS.length + " loaded): " +
+      cityIncreasing + " increasing, " + cityDecreasing + " decreasing, " + cityUnclear + " unclear.";
+  } else {
+    document.getElementById("science-story-cities").textContent = "City reference trends are not currently available.";
+  }
+
+  const positive = regionalGrid.filter(function (cell) { return cell.trend.slope > 0; });
+  const largestPositive = positive.reduce(function (best, cell) {
+    return !best || cell.trend.slope > best.trend.slope ? cell : best;
+  }, null);
+  document.getElementById("science-story-extreme").textContent = formatGridExtreme(largestPositive);
   root.hidden = false;
 }
 
