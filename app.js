@@ -28,6 +28,7 @@ let gridLoading = false;
 let gridMapMode = "trend";
 let gridSelectedYear = END_YEAR;
 let gridRainfallRange = null;
+let gridPeriodRange = 1;
 const GRID_RAINFALL_COLORS = ["#27336a", "#346b99", "#3d9b9d", "#96c881", "#d7ff64"];
 
 document.addEventListener("DOMContentLoaded", function () {
@@ -36,13 +37,9 @@ document.addEventListener("DOMContentLoaded", function () {
   document.getElementById("download-grid-csv").addEventListener("click", downloadGridCsv);
   document.getElementById("retry-load").addEventListener("click", loadAllData);
   document.getElementById("retry-grid").addEventListener("click", loadRegionalGrid);
-  document.getElementById("grid-mode-toggle").addEventListener("click", function () {
-    gridMapMode = gridMapMode === "trend" ? "year" : "trend";
-    updateGridMapControls();
-    renderRegionalGrid();
-    renderMarkers(true);
-    setGridStatus(gridModeStatusMessage(), "ready");
-  });
+  document.getElementById("trend-view-button").addEventListener("click", function () { setGridMapMode("trend"); });
+  document.getElementById("year-view-button").addEventListener("click", function () { setGridMapMode("year"); });
+  document.getElementById("period-view-button").addEventListener("click", function () { setGridMapMode("period"); });
   document.getElementById("grid-year-slider").addEventListener("input", function () {
     gridSelectedYear = Number(this.value);
     updateGridMapControls();
@@ -246,6 +243,7 @@ async function loadRegionalGrid() {
     }
     regionalGrid = analyzed;
     gridRainfallRange = getGridRainfallRange(regionalGrid);
+    gridPeriodRange = getGridPeriodRange(regionalGrid);
     updateGridMapControls();
     renderRegionalGrid();
     renderMarkers();
@@ -255,6 +253,7 @@ async function loadRegionalGrid() {
   } catch (error) {
     regionalGrid = [];
     gridRainfallRange = null;
+    gridPeriodRange = 1;
     updateGridMapControls();
     renderRegionalGrid();
     renderRegionalFindings();
@@ -661,9 +660,43 @@ function getGridRainfallRange(cells) {
   };
 }
 
+function meanInYearRange(seasons, startYear, endYear) {
+  const points = seasons.filter(function (point) { return point.year >= startYear && point.year <= endYear; });
+  if (!points.length) return NaN;
+  return points.reduce(function (sum, point) { return sum + point.rainfall; }, 0) / points.length;
+}
+
+function periodRainfallDifference(seasons) {
+  return meanInYearRange(seasons, 2016, 2025) - meanInYearRange(seasons, 1981, 1990);
+}
+
+function getGridPeriodRange(cells) {
+  let maximum = 0;
+  cells.forEach(function (cell) {
+    const difference = periodRainfallDifference(cell.seasons);
+    if (Number.isFinite(difference)) maximum = Math.max(maximum, Math.abs(difference));
+  });
+  Object.keys(resultsById).forEach(function (id) {
+    const difference = periodRainfallDifference(resultsById[id].seasons);
+    if (Number.isFinite(difference)) maximum = Math.max(maximum, Math.abs(difference));
+  });
+  return maximum || 1;
+}
+
+function setGridMapMode(mode) {
+  gridMapMode = mode;
+  updateGridMapControls();
+  renderRegionalGrid();
+  renderMarkers(true);
+  setGridStatus(gridModeStatusMessage(), "ready");
+}
+
 function gridModeStatusMessage() {
   if (gridMapMode === "year") {
     return "Annual June–September rainfall · " + gridSelectedYear + " · shared scale across grid and city references";
+  }
+  if (gridMapMode === "period") {
+    return "Period comparison · 2016–2025 mean minus 1981–1990 mean · mm/season";
   }
   return "NASA POWER trend grid loaded · " + regionalGrid.length + " cells · click for annual detail, hover for interval";
 }
@@ -677,40 +710,57 @@ function updateGridMapControls() {
   }
   controls.hidden = false;
   const yearMode = gridMapMode === "year";
-  const toggle = document.getElementById("grid-mode-toggle");
-  toggle.textContent = yearMode ? "Show trend map" : "Explore a year";
-  toggle.setAttribute("aria-pressed", yearMode ? "true" : "false");
+  const periodMode = gridMapMode === "period";
+  document.getElementById("trend-view-button").setAttribute("aria-pressed", gridMapMode === "trend" ? "true" : "false");
+  document.getElementById("year-view-button").setAttribute("aria-pressed", yearMode ? "true" : "false");
+  document.getElementById("period-view-button").setAttribute("aria-pressed", periodMode ? "true" : "false");
   document.getElementById("grid-year-control").hidden = !yearMode;
   const slider = document.getElementById("grid-year-slider");
   slider.disabled = false;
   slider.value = String(gridSelectedYear);
   document.getElementById("grid-year-value").textContent = String(gridSelectedYear);
-  document.getElementById("grid-map-title").textContent =
-    yearMode ? "Annual monsoon rainfall · " + gridSelectedYear : "Regional rainfall trend grid";
-  document.getElementById("trend-map-legend").hidden = yearMode;
+  document.getElementById("grid-map-title").textContent = yearMode
+    ? "Annual monsoon rainfall · " + gridSelectedYear
+    : periodMode ? "Mean rainfall change · recent vs early decade" : "Regional rainfall trend grid";
+  document.getElementById("trend-map-legend").hidden = gridMapMode !== "trend";
   document.getElementById("annual-map-legend").hidden = !yearMode;
+  document.getElementById("period-map-legend").hidden = !periodMode;
   document.getElementById("grid-view-note").textContent = yearMode
     ? "Map colors show June–September rainfall for the selected year; the readout below summarizes 1981–2025 trends."
-    : "Trend colors show whether each cell's 95% interval excludes zero.";
+    : periodMode
+      ? "Difference = 2016–2025 mean minus 1981–1990 mean. This descriptive contrast is not a trend estimate or significance test."
+      : "Trend colors show whether each cell's 95% interval excludes zero.";
   if (gridRainfallRange) {
     document.getElementById("year-scale-min").textContent = formatNumber(gridRainfallRange.min, 0) + " mm";
     document.getElementById("year-scale-max").textContent = formatNumber(gridRainfallRange.max, 0) + " mm";
   }
+  document.getElementById("period-scale-min").textContent = signed(-gridPeriodRange, 0) + " mm";
+  document.getElementById("period-scale-max").textContent = signed(gridPeriodRange, 0) + " mm";
+}
+
+function interpolateGridColor(position, colors) {
+  const scaled = Math.max(0, Math.min(1, position)) * (colors.length - 1);
+  const lower = Math.floor(scaled);
+  const upper = Math.min(lower + 1, colors.length - 1);
+  const fraction = scaled - lower;
+  const first = colors[lower].match(/[0-9a-f]{2}/gi).map(function (part) { return parseInt(part, 16); });
+  const second = colors[upper].match(/[0-9a-f]{2}/gi).map(function (part) { return parseInt(part, 16); });
+  return "#" + first.map(function (channel, index) {
+    return Math.round(channel + (second[index] - channel) * fraction).toString(16).padStart(2, "0");
+  }).join("");
 }
 
 function gridRainfallColor(value) {
   if (!Number.isFinite(value) || !gridRainfallRange) return "#94a5ae";
   const span = gridRainfallRange.max - gridRainfallRange.min;
-  const position = Math.max(0, Math.min(1, (value - gridRainfallRange.min) / (span || 1)));
-  const scaled = position * (GRID_RAINFALL_COLORS.length - 1);
-  const lower = Math.floor(scaled);
-  const upper = Math.min(lower + 1, GRID_RAINFALL_COLORS.length - 1);
-  const fraction = scaled - lower;
-  const first = GRID_RAINFALL_COLORS[lower].match(/[0-9a-f]{2}/gi).map(function (part) { return parseInt(part, 16); });
-  const second = GRID_RAINFALL_COLORS[upper].match(/[0-9a-f]{2}/gi).map(function (part) { return parseInt(part, 16); });
-  return "#" + first.map(function (channel, index) {
-    return Math.round(channel + (second[index] - channel) * fraction).toString(16).padStart(2, "0");
-  }).join("");
+  return interpolateGridColor((value - gridRainfallRange.min) / (span || 1), GRID_RAINFALL_COLORS);
+}
+
+function gridPeriodColor(value) {
+  if (!Number.isFinite(value)) return "#94a5ae";
+  const colors = ["#ff9a82", "#94a5ae", "#72d9e9"];
+  const position = (Math.max(-gridPeriodRange, Math.min(gridPeriodRange, value)) + gridPeriodRange) / (2 * gridPeriodRange);
+  return interpolateGridColor(position, colors);
 }
 
 function renderRegionalGrid() {
@@ -721,12 +771,16 @@ function renderRegionalGrid() {
   const latitudeStep = gridSpacing(regionalGrid.map(function (cell) { return cell.location.lat; }), .5);
   const longitudeStep = gridSpacing(regionalGrid.map(function (cell) { return cell.location.lon; }), .625);
   const yearMode = gridMapMode === "year";
+  const periodMode = gridMapMode === "period";
   regionalGrid.forEach(function (cell) {
     const location = cell.location;
     const trend = cell.trend;
     const signal = getSignal(trend);
     const season = yearMode ? cell.seasons.find(function (point) { return point.year === gridSelectedYear; }) : null;
-    const fill = yearMode ? gridRainfallColor(season ? season.rainfall : NaN) : signalColor(signal);
+    const difference = periodMode ? periodRainfallDifference(cell.seasons) : NaN;
+    const fill = yearMode
+      ? gridRainfallColor(season ? season.rainfall : NaN)
+      : periodMode ? gridPeriodColor(difference) : signalColor(signal);
     const selected = location.id === selectedGridCellId;
     const rectangle = L.rectangle([
       [location.lat - latitudeStep / 2, location.lon - longitudeStep / 2],
@@ -736,7 +790,7 @@ function renderRegionalGrid() {
       weight: selected ? 2 : .6,
       opacity: .82,
       fillColor: fill,
-      fillOpacity: selected ? .72 : (yearMode ? .66 : .48)
+      fillOpacity: selected ? .72 : (yearMode || periodMode ? .66 : .48)
     }).addTo(mapInstance);
     let tooltip;
     if (yearMode) {
@@ -745,6 +799,13 @@ function renderRegionalGrid() {
         "°E<br>June–September " + gridSelectedYear + ": " +
         (season ? formatNumber(season.rainfall, 0) + " mm" : "no complete season") +
         (season ? "<br>" + signed(season.rainfall - average, 0) + " mm vs 1981–2025 cell mean" : "");
+    } else if (periodMode) {
+      const early = meanInYearRange(cell.seasons, 1981, 1990);
+      const recent = meanInYearRange(cell.seasons, 2016, 2025);
+      tooltip = "POWER grid cell · " + location.lat.toFixed(2) + "°N, " + location.lon.toFixed(2) +
+        "°E<br>1981–1990 mean: " + formatNumber(early, 0) + " mm/season" +
+        "<br>2016–2025 mean: " + formatNumber(recent, 0) + " mm/season" +
+        "<br>Difference: " + signed(difference, 0) + " mm/season";
     } else {
       const label = signal === "up" ? "Increasing" : signal === "down" ? "Decreasing" : "Unclear";
       tooltip = "POWER grid cell · " + location.lat.toFixed(2) + "°N, " + location.lon.toFixed(2) +
@@ -768,9 +829,10 @@ function renderMarkers(preserveView) {
     const season = gridMapMode === "year" && result
       ? result.seasons.find(function (point) { return point.year === gridSelectedYear; })
       : null;
+    const difference = gridMapMode === "period" && result ? periodRainfallDifference(result.seasons) : NaN;
     const fill = gridMapMode === "year"
       ? gridRainfallColor(season ? season.rainfall : NaN)
-      : signalColor(signal);
+      : gridMapMode === "period" ? gridPeriodColor(difference) : signalColor(signal);
     const marker = L.circleMarker([location.lat, location.lon], {
       radius: !selectedGridCellId && location.id === selectedId ? 9 : 7,
       color: "#091321",
@@ -780,7 +842,9 @@ function renderMarkers(preserveView) {
     }).addTo(mapInstance);
     const tooltip = gridMapMode === "year"
       ? location.name + " · " + gridSelectedYear + ": " + (season ? formatNumber(season.rainfall, 0) + " mm" : "no complete season")
-      : location.name + (trend ? " · " + signed(trend.slope * 10, 1) + " mm/decade" : "");
+      : gridMapMode === "period"
+        ? location.name + " · recent vs early mean: " + signed(difference, 0) + " mm/season"
+        : location.name + (trend ? " · " + signed(trend.slope * 10, 1) + " mm/decade" : "");
     marker.bindTooltip(tooltip, { direction: "top", offset: [0, -7] });
     marker.on("click", function () { selectLocation(location.id); });
     mapMarkers[location.id] = marker;
