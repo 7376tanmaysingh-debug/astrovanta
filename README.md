@@ -8,13 +8,13 @@ Across the Indo-Gangetic Plain around Ayodhya, where has June–September rainfa
 
 ## What this prototype does
 
-- Fetches daily precipitation for Ayodhya, Lucknow, Prayagraj, Gorakhpur, and Varanasi from the NASA POWER API.
+- Fetches daily precipitation for a regional NASA POWER bounding-box grid and for five city reference series: Ayodhya, Lucknow, Prayagraj, Gorakhpur, and Varanasi.
 - Adds daily rainfall from June 1 through September 30 into a monsoon total for each complete year from 1981 to 2025.
 - Estimates each location's trend with the Theil–Sen slope.
 - Estimates a 95% interval with a circular five-year moving-block bootstrap. A trend is marked as increasing or decreasing only when the interval excludes zero.
-- Shows the selected location's annual series, trend line, confidence interval, comparison map, and CSV export.
+- Shows the regional grid trend classification and 95% interval on map-cell tooltips, alongside selectable city annual series, confidence intervals, and CSV export.
 
-The map shows five reference points, not a complete raster analysis. POWER meteorology is based on NASA's MERRA-2 assimilation model at approximately 0.5° by 0.625° resolution. A point request represents a model grid cell, not a local rain gauge. Results are descriptive and do not establish causes.
+The map now displays the daily regional API grid for a rectangular window from 24.5°N to 27.5°N and 79.5°E to 84°E. The five city cards remain the detailed reference series. This bounding box is not an administrative boundary and does not cover the full Indo-Gangetic Plain. POWER meteorological data are based on NASA's MERRA-2 assimilation model at approximately 0.5° by 0.625° resolution. A grid cell is a model estimate, not a local rain gauge. Results are descriptive and do not establish causes.
 
 ## Run locally
 
