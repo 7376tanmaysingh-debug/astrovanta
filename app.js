@@ -604,7 +604,7 @@ function renderLocations() {
     const result = resultsById[location.id];
     const trend = result ? trendById[location.id] : null;
     const signal = trend ? getSignal(trend) : "unclear";
-    return '<button type="button" class="site-row' + (location.id === selectedId ? " active" : "") + '" data-location="' + location.id + '">' +
+    return '<button type="button" class="site-row' + (!selectedGridCellId && location.id === selectedId ? " active" : "") + '" data-location="' + location.id + '">' +
       '<span class="site-row-dot" style="background:' + signalColor(signal) + '"></span>' +
       '<span class="site-row-copy"><strong>' + escapeHtml(location.name) + '</strong><small>' + (trend ? signed(trend.slope * 10, 1) + ' mm / decade' : 'Data unavailable') + '</small></span>' +
       '</button>';
