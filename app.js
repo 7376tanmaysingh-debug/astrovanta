@@ -22,13 +22,13 @@ let selectedGridCellId = null;
 let mapInstance = null;
 let mapMarkers = {};
 let trendById = {};
+let periodById = {};
 let regionalGrid = [];
 let gridLayers = [];
 let gridLoading = false;
 let gridMapMode = "trend";
 let gridSelectedYear = END_YEAR;
 let gridRainfallRange = null;
-let gridPeriodRange = 1;
 const GRID_RAINFALL_COLORS = ["#27336a", "#346b99", "#3d9b9d", "#96c881", "#d7ff64"];
 
 document.addEventListener("DOMContentLoaded", function () {
@@ -98,9 +98,12 @@ async function loadAllData() {
       if (firstAvailable) selectedId = firstAvailable.id;
     }
     trendById = {};
+    periodById = {};
     Object.keys(resultsById).forEach(function (id) {
-      const location = resultsById[id].location;
-      trendById[id] = bootstrapInterval(resultsById[id].seasons, location.seed);
+      const result = resultsById[id];
+      const location = result.location;
+      trendById[id] = bootstrapInterval(result.seasons, location.seed);
+      periodById[id] = bootstrapPeriodDifference(result.seasons, location.seed ^ 0x9e3779b9);
     });
     renderLocations();
     renderRegionalSummary();
@@ -234,7 +237,8 @@ async function loadRegionalGrid() {
       analyzed.push({
         location: location,
         seasons: cell.seasons,
-        trend: bootstrapInterval(cell.seasons, seed)
+        trend: bootstrapInterval(cell.seasons, seed),
+        period: bootstrapPeriodDifference(cell.seasons, seed ^ 0x9e3779b9)
       });
       if ((index + 1) % 4 === 0 && index + 1 < rawCells.length) {
         setGridStatus("Calculating trend intervals · " + (index + 1) + " of " + rawCells.length + " cells…");
@@ -243,7 +247,6 @@ async function loadRegionalGrid() {
     }
     regionalGrid = analyzed;
     gridRainfallRange = getGridRainfallRange(regionalGrid);
-    gridPeriodRange = getGridPeriodRange(regionalGrid);
     updateGridMapControls();
     renderRegionalGrid();
     renderMarkers();
@@ -253,7 +256,6 @@ async function loadRegionalGrid() {
   } catch (error) {
     regionalGrid = [];
     gridRainfallRange = null;
-    gridPeriodRange = 1;
     updateGridMapControls();
     renderRegionalGrid();
     renderRegionalFindings();
@@ -666,21 +668,39 @@ function meanInYearRange(seasons, startYear, endYear) {
   return points.reduce(function (sum, point) { return sum + point.rainfall; }, 0) / points.length;
 }
 
-function periodRainfallDifference(seasons) {
-  return meanInYearRange(seasons, 2016, 2025) - meanInYearRange(seasons, 1981, 1990);
+function movingBlockMean(points, random) {
+  const sample = [];
+  while (sample.length < points.length) {
+    const start = Math.floor(random() * points.length);
+    for (let offset = 0; offset < BLOCK_LENGTH && sample.length < points.length; offset += 1) {
+      sample.push(points[(start + offset) % points.length].rainfall);
+    }
+  }
+  return sample.reduce(function (sum, value) { return sum + value; }, 0) / sample.length;
 }
 
-function getGridPeriodRange(cells) {
-  let maximum = 0;
-  cells.forEach(function (cell) {
-    const difference = periodRainfallDifference(cell.seasons);
-    if (Number.isFinite(difference)) maximum = Math.max(maximum, Math.abs(difference));
-  });
-  Object.keys(resultsById).forEach(function (id) {
-    const difference = periodRainfallDifference(resultsById[id].seasons);
-    if (Number.isFinite(difference)) maximum = Math.max(maximum, Math.abs(difference));
-  });
-  return maximum || 1;
+function bootstrapPeriodDifference(points, seed) {
+  const early = points.filter(function (point) { return point.year >= 1981 && point.year <= 1990; });
+  const recent = points.filter(function (point) { return point.year >= 2016 && point.year <= 2025; });
+  const earlyMean = meanInYearRange(early, 1981, 1990);
+  const recentMean = meanInYearRange(recent, 2016, 2025);
+  const difference = recentMean - earlyMean;
+  if (early.length < 5 || recent.length < 5) {
+    return { earlyMean: earlyMean, recentMean: recentMean, difference: difference, low: NaN, high: NaN };
+  }
+  const random = makeRandom(seed);
+  const bootDifferences = [];
+  for (let run = 0; run < BOOTSTRAP_RUNS; run += 1) {
+    bootDifferences.push(movingBlockMean(recent, random) - movingBlockMean(early, random));
+  }
+  bootDifferences.sort(function (a, b) { return a - b; });
+  return {
+    earlyMean: earlyMean,
+    recentMean: recentMean,
+    difference: difference,
+    low: percentile(bootDifferences, 0.025),
+    high: percentile(bootDifferences, 0.975)
+  };
 }
 
 function setGridMapMode(mode) {
@@ -696,7 +716,7 @@ function gridModeStatusMessage() {
     return "Annual June–September rainfall · " + gridSelectedYear + " · shared scale across grid and city references";
   }
   if (gridMapMode === "period") {
-    return "Period comparison · 2016–2025 mean minus 1981–1990 mean · mm/season";
+    return "Period comparison · 2016–2025 minus 1981–1990 means · 95% block-bootstrap interval";
   }
   return "NASA POWER trend grid loaded · " + regionalGrid.length + " cells · click for annual detail, hover for interval";
 }
@@ -728,14 +748,12 @@ function updateGridMapControls() {
   document.getElementById("grid-view-note").textContent = yearMode
     ? "Map colors show June–September rainfall for the selected year; the readout below summarizes 1981–2025 trends."
     : periodMode
-      ? "Difference = 2016–2025 mean minus 1981–1990 mean. This descriptive contrast is not a trend estimate or significance test."
+      ? "Colors show whether 95% circular 5-year moving-block bootstrap intervals for the recent-minus-early mean exclude zero. Cell intervals are not adjusted for multiple testing."
       : "Trend colors show whether each cell's 95% interval excludes zero.";
   if (gridRainfallRange) {
     document.getElementById("year-scale-min").textContent = formatNumber(gridRainfallRange.min, 0) + " mm";
     document.getElementById("year-scale-max").textContent = formatNumber(gridRainfallRange.max, 0) + " mm";
   }
-  document.getElementById("period-scale-min").textContent = signed(-gridPeriodRange, 0) + " mm";
-  document.getElementById("period-scale-max").textContent = signed(gridPeriodRange, 0) + " mm";
 }
 
 function interpolateGridColor(position, colors) {
@@ -756,13 +774,6 @@ function gridRainfallColor(value) {
   return interpolateGridColor((value - gridRainfallRange.min) / (span || 1), GRID_RAINFALL_COLORS);
 }
 
-function gridPeriodColor(value) {
-  if (!Number.isFinite(value)) return "#94a5ae";
-  const colors = ["#ff9a82", "#94a5ae", "#72d9e9"];
-  const position = (Math.max(-gridPeriodRange, Math.min(gridPeriodRange, value)) + gridPeriodRange) / (2 * gridPeriodRange);
-  return interpolateGridColor(position, colors);
-}
-
 function renderRegionalGrid() {
   if (!mapInstance) return;
   gridLayers.forEach(function (layer) { mapInstance.removeLayer(layer); });
@@ -777,10 +788,11 @@ function renderRegionalGrid() {
     const trend = cell.trend;
     const signal = getSignal(trend);
     const season = yearMode ? cell.seasons.find(function (point) { return point.year === gridSelectedYear; }) : null;
-    const difference = periodMode ? periodRainfallDifference(cell.seasons) : NaN;
+    const period = periodMode ? cell.period : null;
+    const difference = period ? period.difference : NaN;
     const fill = yearMode
       ? gridRainfallColor(season ? season.rainfall : NaN)
-      : periodMode ? gridPeriodColor(difference) : signalColor(signal);
+      : periodMode ? signalColor(getSignal(period)) : signalColor(signal);
     const selected = location.id === selectedGridCellId;
     const rectangle = L.rectangle([
       [location.lat - latitudeStep / 2, location.lon - longitudeStep / 2],
@@ -800,12 +812,11 @@ function renderRegionalGrid() {
         (season ? formatNumber(season.rainfall, 0) + " mm" : "no complete season") +
         (season ? "<br>" + signed(season.rainfall - average, 0) + " mm vs 1981–2025 cell mean" : "");
     } else if (periodMode) {
-      const early = meanInYearRange(cell.seasons, 1981, 1990);
-      const recent = meanInYearRange(cell.seasons, 2016, 2025);
       tooltip = "POWER grid cell · " + location.lat.toFixed(2) + "°N, " + location.lon.toFixed(2) +
-        "°E<br>1981–1990 mean: " + formatNumber(early, 0) + " mm/season" +
-        "<br>2016–2025 mean: " + formatNumber(recent, 0) + " mm/season" +
-        "<br>Difference: " + signed(difference, 0) + " mm/season";
+        "°E<br>1981–1990 mean: " + formatNumber(period.earlyMean, 0) + " mm/season" +
+        "<br>2016–2025 mean: " + formatNumber(period.recentMean, 0) + " mm/season" +
+        "<br>Difference: " + signed(difference, 0) + " mm/season" +
+        "<br>95% interval: " + signed(period.low, 0) + " to " + signed(period.high, 0) + " mm/season";
     } else {
       const label = signal === "up" ? "Increasing" : signal === "down" ? "Decreasing" : "Unclear";
       tooltip = "POWER grid cell · " + location.lat.toFixed(2) + "°N, " + location.lon.toFixed(2) +
@@ -829,10 +840,11 @@ function renderMarkers(preserveView) {
     const season = gridMapMode === "year" && result
       ? result.seasons.find(function (point) { return point.year === gridSelectedYear; })
       : null;
-    const difference = gridMapMode === "period" && result ? periodRainfallDifference(result.seasons) : NaN;
+    const period = gridMapMode === "period" ? periodById[location.id] : null;
+    const difference = period ? period.difference : NaN;
     const fill = gridMapMode === "year"
       ? gridRainfallColor(season ? season.rainfall : NaN)
-      : gridMapMode === "period" ? gridPeriodColor(difference) : signalColor(signal);
+      : gridMapMode === "period" ? signalColor(getSignal(period)) : signalColor(signal);
     const marker = L.circleMarker([location.lat, location.lon], {
       radius: !selectedGridCellId && location.id === selectedId ? 9 : 7,
       color: "#091321",
@@ -843,7 +855,8 @@ function renderMarkers(preserveView) {
     const tooltip = gridMapMode === "year"
       ? location.name + " · " + gridSelectedYear + ": " + (season ? formatNumber(season.rainfall, 0) + " mm" : "no complete season")
       : gridMapMode === "period"
-        ? location.name + " · recent vs early mean: " + signed(difference, 0) + " mm/season"
+        ? location.name + " · recent vs early: " + signed(difference, 0) + " mm/season · 95% interval " +
+          signed(period.low, 0) + " to " + signed(period.high, 0)
         : location.name + (trend ? " · " + signed(trend.slope * 10, 1) + " mm/decade" : "");
     marker.bindTooltip(tooltip, { direction: "top", offset: [0, -7] });
     marker.on("click", function () { selectLocation(location.id); });
@@ -991,6 +1004,9 @@ function downloadGridCsv() {
     "grid_cell_id", "latitude", "longitude", "year", "monsoon_rainfall_mm",
     "theil_sen_slope_mm_per_decade", "bootstrap_95_low_mm_per_decade",
     "bootstrap_95_high_mm_per_decade", "signal", "uncertainty_method",
+    "early_period_mean_1981_1990_mm_per_season", "recent_period_mean_2016_2025_mm_per_season",
+    "recent_minus_early_mm_per_season", "period_bootstrap_95_low_mm_per_season",
+    "period_bootstrap_95_high_mm_per_season", "period_signal", "period_uncertainty_method",
     "parameter", "data_source", "season_months", "analysis_window"
   ]];
   regionalGrid.slice().sort(function (a, b) {
@@ -998,6 +1014,8 @@ function downloadGridCsv() {
   }).forEach(function (cell) {
     const signal = getSignal(cell.trend);
     const signalLabel = signal === "up" ? "increasing" : signal === "down" ? "decreasing" : "unclear";
+    const periodSignal = getSignal(cell.period);
+    const periodSignalLabel = periodSignal === "up" ? "recent-higher" : periodSignal === "down" ? "recent-lower" : "unclear";
     cell.seasons.slice().sort(function (a, b) { return a.year - b.year; }).forEach(function (point) {
       rows.push([
         cell.location.id,
@@ -1010,6 +1028,13 @@ function downloadGridCsv() {
         (cell.trend.high * 10).toFixed(3),
         signalLabel,
         "95% circular 5-year moving-block bootstrap of detrended residuals; 500 runs",
+        Number.isFinite(cell.period.earlyMean) ? cell.period.earlyMean.toFixed(2) : "",
+        Number.isFinite(cell.period.recentMean) ? cell.period.recentMean.toFixed(2) : "",
+        Number.isFinite(cell.period.difference) ? cell.period.difference.toFixed(2) : "",
+        Number.isFinite(cell.period.low) ? cell.period.low.toFixed(2) : "",
+        Number.isFinite(cell.period.high) ? cell.period.high.toFixed(2) : "",
+        periodSignalLabel,
+        "95% circular 5-year moving-block bootstrap within each 10-season period; 500 runs",
         "PRECTOTCORR",
         "NASA POWER / MERRA-2",
         "June-September",
