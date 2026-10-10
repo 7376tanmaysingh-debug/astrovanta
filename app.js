@@ -18,6 +18,7 @@ const LOCATIONS = [
 
 let resultsById = {};
 let selectedId = "ayodhya";
+let selectedGridCellId = null;
 let mapInstance = null;
 let mapMarkers = {};
 let trendById = {};
@@ -230,7 +231,7 @@ async function loadRegionalGrid() {
     renderMarkers();
     renderRegionalFindings();
     renderScienceStory();
-    setGridStatus("NASA POWER trend grid loaded · " + regionalGrid.length + " cells · hover a cell for its interval", "ready");
+    setGridStatus("NASA POWER trend grid loaded · " + regionalGrid.length + " cells · click a cell for its annual detail", "ready");
   } catch (error) {
     regionalGrid = [];
     renderRegionalGrid();
@@ -638,11 +639,11 @@ function renderRegionalGrid() {
       [location.lat - latitudeStep / 2, location.lon - longitudeStep / 2],
       [location.lat + latitudeStep / 2, location.lon + longitudeStep / 2]
     ], {
-      color: "#091321",
-      weight: .6,
-      opacity: .72,
+      color: location.id === selectedGridCellId ? "#d7ff64" : "#091321",
+      weight: location.id === selectedGridCellId ? 2 : .6,
+      opacity: .82,
       fillColor: signalColor(signal),
-      fillOpacity: .48
+      fillOpacity: location.id === selectedGridCellId ? .66 : .48
     }).addTo(mapInstance);
     const label = signal === "up" ? "Increasing" : signal === "down" ? "Decreasing" : "Unclear";
     rectangle.bindTooltip(
@@ -651,6 +652,7 @@ function renderRegionalGrid() {
       signed(trend.low * 10, 1) + " to " + signed(trend.high * 10, 1) + " mm/decade",
       { sticky: true }
     );
+    rectangle.on("click", function () { selectGridCell(cell); });
     gridLayers.push(rectangle);
   });
 }
@@ -664,7 +666,7 @@ function renderMarkers() {
     const trend = result ? trendById[location.id] : null;
     const signal = trend ? getSignal(trend) : "unclear";
     const marker = L.circleMarker([location.lat, location.lon], {
-      radius: location.id === selectedId ? 9 : 7,
+      radius: !selectedGridCellId && location.id === selectedId ? 9 : 7,
       color: "#091321",
       weight: 2.2,
       fillColor: signalColor(signal),
@@ -684,10 +686,23 @@ function renderMarkers() {
 function selectLocation(id) {
   const result = resultsById[id];
   if (!result) return;
+  const hadGridSelection = Boolean(selectedGridCellId);
+  selectedGridCellId = null;
   selectedId = id;
-  const location = result.location;
-  const seasons = result.seasons;
-  const trend = trendById[id] || bootstrapInterval(seasons, location.seed);
+  if (hadGridSelection) renderRegionalGrid();
+  renderSelectedSeries(result.location, result.seasons, trendById[id] || bootstrapInterval(result.seasons, result.location.seed), "city");
+  renderMarkers();
+}
+
+function selectGridCell(cell) {
+  if (!cell || !cell.seasons || !cell.seasons.length) return;
+  selectedGridCellId = cell.location.id;
+  renderRegionalGrid();
+  Object.keys(mapMarkers).forEach(function (id) { mapMarkers[id].setRadius(7); });
+  renderSelectedSeries(cell.location, cell.seasons, cell.trend, "grid");
+}
+
+function renderSelectedSeries(location, seasons, trend, seriesType) {
   const signal = getSignal(trend);
   const mean = seasons.reduce(function (sum, point) { return sum + point.rainfall; }, 0) / seasons.length;
   const first = seasons.slice(0, Math.min(10, seasons.length));
@@ -696,21 +711,32 @@ function selectLocation(id) {
   const lastMean = last.reduce(function (sum, point) { return sum + point.rainfall; }, 0) / last.length;
   const change = lastMean - firstMean;
 
+  document.getElementById("detail-kicker").textContent =
+    seriesType === "grid" ? "SELECTED REGIONAL GRID CELL" : "SELECTED REFERENCE CELL";
   document.getElementById("selected-name").textContent = location.name;
-  document.getElementById("selected-region").textContent = location.region + ", India · " + location.lat.toFixed(2) + "°N, " + location.lon.toFixed(2) + "°E";
+  document.getElementById("selected-region").textContent =
+    seriesType === "grid"
+      ? location.region + " · " + location.lat.toFixed(2) + "°N, " + location.lon.toFixed(2) + "°E"
+      : location.region + ", India · " + location.lat.toFixed(2) + "°N, " + location.lon.toFixed(2) + "°E";
   document.getElementById("mean-value").textContent = formatNumber(mean, 0);
   document.getElementById("trend-value").textContent = signed(trend.slope * 10, 1);
   document.getElementById("trend-note").textContent = seasons.length + " complete seasons · Theil–Sen";
-  document.getElementById("interval-value").textContent = signed(trend.low * 10, 1) + " to " + signed(trend.high * 10, 1) + " mm / decade";
+  document.getElementById("interval-value").textContent =
+    signed(trend.low * 10, 1) + " to " + signed(trend.high * 10, 1) + " mm / decade";
   document.getElementById("change-value").textContent = signed(change, 0) + " mm · last 10 vs first 10 seasons";
   const pill = document.getElementById("signal-pill");
   pill.className = "signal-pill " + (signal === "unclear" ? "neutral" : signal);
   pill.textContent = signal === "up" ? "INCREASING" : signal === "down" ? "DECREASING" : "UNCLEAR SIGNAL";
   document.getElementById("confidence-icon").textContent = signal === "down" ? "↘" : signal === "unclear" ? "↔" : "↗";
+  document.getElementById("chart").setAttribute(
+    "aria-label",
+    "Annual June to September rainfall for " + (seriesType === "grid" ? "selected NASA POWER grid cell" : location.name)
+  );
+  const cityDownload = document.getElementById("download-csv");
+  cityDownload.hidden = seriesType === "grid";
 
   renderChart(seasons, trend);
   renderLocations();
-  renderMarkers();
 }
 
 function renderChart(points, trend) {
