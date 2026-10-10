@@ -213,7 +213,7 @@ function describeApiError(response, responseBody, label) {
     ].forEach(function (value) { collectApiMessages(value, messages); });
     detail = Array.from(new Set(messages)).join(" ");
   } catch (_) {
-    detail = String(responseBody || "").replace(/\\s+/g, " ").trim();
+    detail = String(responseBody || "").replace(/\s+/g, " ").trim();
   }
   detail = detail.slice(0, 280);
   return label + " (" + response.status + ")" + (detail ? ": " + detail : ".");
