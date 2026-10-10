@@ -226,10 +226,12 @@ async function loadRegionalGrid() {
     regionalGrid = analyzed;
     renderRegionalGrid();
     renderMarkers();
+    renderRegionalFindings();
     setGridStatus("NASA POWER trend grid loaded · " + regionalGrid.length + " cells · hover a cell for its interval", "ready");
   } catch (error) {
     regionalGrid = [];
     renderRegionalGrid();
+    renderRegionalFindings();
     setGridStatus("Regional grid unavailable · city trends remain available. " + (error.message || "Retry the request."), "error");
   } finally {
     gridLoading = false;
@@ -490,6 +492,48 @@ function renderRegionalSummary() {
   finding += " Largest-magnitude point estimate: " + largest.location.name + " (" +
     signed(largest.trend.slope * 10, 1) + " mm/decade).";
   document.getElementById("summary-finding").textContent = finding;
+}
+
+function renderRegionalFindings() {
+  const root = document.getElementById("grid-findings");
+  if (!root) return;
+  if (!regionalGrid.length) {
+    root.hidden = true;
+    return;
+  }
+
+  const increasing = regionalGrid.filter(function (cell) { return getSignal(cell.trend) === "up"; });
+  const decreasing = regionalGrid.filter(function (cell) { return getSignal(cell.trend) === "down"; });
+  const unclear = regionalGrid.filter(function (cell) { return getSignal(cell.trend) === "unclear"; });
+  const positive = regionalGrid.filter(function (cell) { return cell.trend.slope > 0; });
+  const negative = regionalGrid.filter(function (cell) { return cell.trend.slope < 0; });
+  const largestPositive = positive.reduce(function (best, cell) {
+    return !best || cell.trend.slope > best.trend.slope ? cell : best;
+  }, null);
+  const largestNegative = negative.reduce(function (best, cell) {
+    return !best || cell.trend.slope < best.trend.slope ? cell : best;
+  }, null);
+
+  document.getElementById("grid-summary-coverage").textContent = regionalGrid.length + " analyzed cells";
+  document.getElementById("grid-summary-up").textContent = String(increasing.length);
+  document.getElementById("grid-summary-down").textContent = String(decreasing.length);
+  document.getElementById("grid-summary-unclear").textContent = String(unclear.length);
+  document.getElementById("grid-summary-finding").textContent =
+    "Across " + regionalGrid.length + " sampled cells, " + increasing.length + " have an increasing signal, " +
+    decreasing.length + " a decreasing signal, and " + unclear.length + " an unclear signal.";
+  document.getElementById("grid-largest-positive").textContent = formatGridExtreme(largestPositive);
+  document.getElementById("grid-largest-negative").textContent = formatGridExtreme(largestNegative);
+  root.hidden = false;
+}
+
+function formatGridExtreme(cell) {
+  if (!cell) return "No point estimate in this direction";
+  const location = cell.location;
+  const trend = cell.trend;
+  const signal = getSignal(trend);
+  const signalLabel = signal === "up" ? "increasing signal" : signal === "down" ? "decreasing signal" : "unclear signal";
+  return signed(trend.slope * 10, 1) + " mm/decade · " +
+    location.lat.toFixed(2) + "°N, " + location.lon.toFixed(2) + "°E · " + signalLabel;
 }
 
 function renderLocations() {
