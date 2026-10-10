@@ -70,6 +70,7 @@ async function loadAllData() {
       trendById[id] = bootstrapInterval(resultsById[id].seasons, location.seed);
     });
     renderLocations();
+    renderRegionalSummary();
     renderMarkers();
     selectLocation(selectedId);
     document.getElementById("download-csv").disabled = false;
@@ -224,6 +225,38 @@ function signalColor(signal) {
   if (signal === "up") return "#d7ff64";
   if (signal === "down") return "#ff9a82";
   return "#94a5ae";
+}
+
+function renderRegionalSummary() {
+  const cells = LOCATIONS.filter(function (location) {
+    return Boolean(resultsById[location.id] && trendById[location.id]);
+  }).map(function (location) {
+    const trend = trendById[location.id];
+    return { location: location, trend: trend, signal: getSignal(trend) };
+  });
+  const increasing = cells.filter(function (cell) { return cell.signal === "up"; });
+  const decreasing = cells.filter(function (cell) { return cell.signal === "down"; });
+  const unclear = cells.filter(function (cell) { return cell.signal === "unclear"; });
+
+  document.getElementById("summary-up").textContent = String(increasing.length);
+  document.getElementById("summary-down").textContent = String(decreasing.length);
+  document.getElementById("summary-unclear").textContent = String(unclear.length);
+  document.getElementById("summary-coverage").textContent =
+    cells.length + " of " + LOCATIONS.length + " reference cells loaded";
+
+  if (!cells.length) {
+    document.getElementById("summary-finding").textContent = "No reference-cell trends are available yet.";
+    return;
+  }
+
+  let finding = "Among " + cells.length + " loaded cells: " + increasing.length +
+    " increasing, " + decreasing.length + " decreasing, and " + unclear.length + " unclear.";
+  const largest = cells.reduce(function (best, cell) {
+    return Math.abs(cell.trend.slope) > Math.abs(best.trend.slope) ? cell : best;
+  });
+  finding += " Largest point estimate: " + largest.location.name + " (" +
+    signed(largest.trend.slope * 10, 1) + " mm/decade).";
+  document.getElementById("summary-finding").textContent = finding;
 }
 
 function renderLocations() {
