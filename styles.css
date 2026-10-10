@@ -118,6 +118,9 @@ h3 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -.02em; }
 .grid-extremes span { color: var(--muted); font-size: 9px; letter-spacing: .04em; }
 .grid-extremes strong { color: var(--text); font-size: 10px; font-weight: 500; line-height: 1.5; overflow-wrap: anywhere; }
 .grid-findings-note { color: var(--soft); font-size: 9px; line-height: 1.5; margin: 10px 0 0; }
+.grid-findings-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 10px; }
+.grid-findings-footer .grid-findings-note { margin: 0; }
+.grid-download-button { flex: 0 0 auto; }
 .legend-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
 .legend-dot.wetter { background: var(--lime); box-shadow: 0 0 7px rgba(215,255,100,.55); }
 .legend-dot.drier { background: var(--coral); box-shadow: 0 0 7px rgba(255,154,130,.45); }
@@ -217,6 +220,7 @@ h3 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -.02em; }
   .summary-stat strong { font-size: 20px; }
   .summary-stat span { font-size: 9px; }
   .grid-extremes { grid-template-columns: 1fr; }
+  .grid-findings-footer { align-items: flex-start; flex-direction: column; }
   .topbar { min-height: 68px; }
   .topbar-center { display: none; }
   .brand { font-size: 10px; }
