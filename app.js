@@ -131,8 +131,9 @@ async function loadRegionalGrid() {
       url.searchParams.set("end", String(END_YEAR) + "1231");
       url.searchParams.set("format", "JSON");
       const response = await fetch(url.toString(), { headers: { Accept: "application/json" } });
-      if (!response.ok) throw new Error("NASA POWER regional request failed (" + response.status + ").");
-      const payload = await response.json();
+      const responseBody = await response.text();
+      if (!response.ok) throw new Error(describeApiError(response, responseBody, "NASA POWER regional request failed"));
+      const payload = JSON.parse(responseBody);
       rawCells = extractRegionalCells(payload);
       if (rawCells.length < 10) throw new Error("NASA POWER returned too few regional grid cells.");
       try {
@@ -174,6 +175,30 @@ async function loadRegionalGrid() {
   } finally {
     gridLoading = false;
   }
+}
+
+function describeApiError(response, responseBody, label) {
+  let detail = "";
+  try {
+    const payload = JSON.parse(responseBody);
+    const sources = [
+      payload && payload.header && payload.header.messages,
+      payload && payload.messages,
+      payload && payload.errors,
+      payload && payload.detail
+    ];
+    detail = sources.flatMap(function (value) {
+      if (Array.isArray(value)) return value.map(function (item) {
+        return typeof item === "string" ? item : JSON.stringify(item);
+      });
+      if (typeof value === "string") return [value];
+      return [];
+    }).filter(Boolean).join(" ");
+  } catch (_) {
+    detail = String(responseBody || "").replace(/\\s+/g, " ").trim();
+  }
+  detail = detail.slice(0, 280);
+  return label + " (" + response.status + ")" + (detail ? ": " + detail : ".");
 }
 
 function extractRegionalCells(payload) {
