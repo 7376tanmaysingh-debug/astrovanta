@@ -93,6 +93,23 @@
               <span><i class="legend-swatch unclear"></i>Grid · Unclear</span>
               <span><i class="legend-ring"></i>Five city details</span>
             </div>
+            <section class="grid-findings" id="grid-findings" aria-label="Regional grid findings" hidden>
+              <div class="grid-findings-head">
+                <p class="panel-label">GRID READOUT</p>
+                <span class="summary-coverage" id="grid-summary-coverage">Waiting for grid</span>
+              </div>
+              <div class="summary-stats grid-summary-stats" aria-live="polite">
+                <div class="summary-stat increasing"><strong id="grid-summary-up">—</strong><span>Increasing signal</span></div>
+                <div class="summary-stat decreasing"><strong id="grid-summary-down">—</strong><span>Decreasing signal</span></div>
+                <div class="summary-stat unclear"><strong id="grid-summary-unclear">—</strong><span>Unclear</span></div>
+              </div>
+              <p class="grid-summary-finding" id="grid-summary-finding">Waiting for NASA POWER grid data…</p>
+              <div class="grid-extremes">
+                <p><span>Largest positive slope</span><strong id="grid-largest-positive">—</strong></p>
+                <p><span>Largest negative slope</span><strong id="grid-largest-negative">—</strong></p>
+              </div>
+              <p class="grid-findings-note">Increasing or decreasing signals have 95% block-bootstrap intervals that exclude zero. Slope extremes are point estimates.</p>
+            </section>
             <div id="location-list" class="location-list" aria-label="Select a reference location"></div>
           </div>
 
