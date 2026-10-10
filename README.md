@@ -12,6 +12,7 @@ Across the Indo-Gangetic Plain around Ayodhya, where has June–September rainfa
 - Adds daily rainfall from June 1 through September 30 into a monsoon total for each complete year from 1981 to 2025.
 - Estimates each location's trend with the Theil–Sen slope.
 - Estimates a 95% interval with a circular five-year moving-block bootstrap. A trend is marked as increasing or decreasing only when the interval excludes zero.
+- Clicking a regional grid cell loads its annual monsoon series, trend estimate, and confidence interval into the detail chart; the five city references remain selectable.
 - Shows the regional grid trend classification and 95% interval on map-cell tooltips, alongside selectable city annual series, confidence intervals, and CSV export.
 - Exports annual rainfall, trend estimates, 95% intervals, classification, and coordinates for each regional grid cell as a CSV.
 - Writes a data-driven science story comparing regional grid signals with the five city references, while stating model and study-area caveats.
