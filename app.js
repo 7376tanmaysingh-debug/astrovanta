@@ -28,6 +28,7 @@ let gridLoading = false;
 document.addEventListener("DOMContentLoaded", function () {
   initMap();
   document.getElementById("download-csv").addEventListener("click", downloadCsv);
+  document.getElementById("download-grid-csv").addEventListener("click", downloadGridCsv);
   document.getElementById("retry-load").addEventListener("click", loadAllData);
   document.getElementById("retry-grid").addEventListener("click", loadRegionalGrid);
   loadAllData();
@@ -768,13 +769,52 @@ function downloadCsv() {
       rows.push([location.name, location.region, location.lat, location.lon, point.year, point.rainfall.toFixed(2), "NASA POWER PRECTOTCORR / MERRA-2"]);
     });
   });
+  saveCsv(rows, "astrovanta-city-monsoon-rainfall-1981-2025.csv");
+}
+
+function downloadGridCsv() {
+  if (!regionalGrid.length) return;
+  const rows = [[
+    "grid_cell_id", "latitude", "longitude", "year", "monsoon_rainfall_mm",
+    "theil_sen_slope_mm_per_decade", "bootstrap_95_low_mm_per_decade",
+    "bootstrap_95_high_mm_per_decade", "signal", "uncertainty_method",
+    "parameter", "data_source", "season_months", "analysis_window"
+  ]];
+  regionalGrid.slice().sort(function (a, b) {
+    return a.location.lat - b.location.lat || a.location.lon - b.location.lon;
+  }).forEach(function (cell) {
+    const signal = getSignal(cell.trend);
+    const signalLabel = signal === "up" ? "increasing" : signal === "down" ? "decreasing" : "unclear";
+    cell.seasons.slice().sort(function (a, b) { return a.year - b.year; }).forEach(function (point) {
+      rows.push([
+        cell.location.id,
+        cell.location.lat.toFixed(3),
+        cell.location.lon.toFixed(3),
+        point.year,
+        point.rainfall.toFixed(2),
+        (cell.trend.slope * 10).toFixed(3),
+        (cell.trend.low * 10).toFixed(3),
+        (cell.trend.high * 10).toFixed(3),
+        signalLabel,
+        "95% circular 5-year moving-block bootstrap of detrended residuals; 500 runs",
+        "PRECTOTCORR",
+        "NASA POWER / MERRA-2",
+        "June-September",
+        "1981-2025"
+      ]);
+    });
+  });
+  saveCsv(rows, "astrovanta-regional-grid-monsoon-1981-2025.csv");
+}
+
+function saveCsv(rows, filename) {
   const csv = rows.map(function (row) {
     return row.map(function (value) { return '"' + String(value).replace(/"/g, '""') + '"'; }).join(",");
   }).join("\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
   const link = document.createElement("a");
   link.href = URL.createObjectURL(blob);
-  link.download = "astrovanta-monsoon-rainfall-1981-2025.csv";
+  link.download = filename;
   document.body.appendChild(link);
   link.click();
   link.remove();
