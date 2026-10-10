@@ -78,20 +78,37 @@
             <div class="panel-top">
               <div>
                 <p class="panel-label">REGIONAL OVERVIEW</p>
-                <h3>Regional rainfall trend grid</h3>
+                <h3 id="grid-map-title">Regional rainfall trend grid</h3>
               </div>
               <span class="panel-index">1981 — 2025</span>
             </div>
-            <div id="map" class="map" aria-label="NASA POWER rainfall trend grid with five city references"></div>
+            <div id="map" class="map" aria-label="NASA POWER rainfall grid with five city references"></div>
+            <div class="grid-map-controls" id="grid-map-controls" hidden>
+              <button type="button" id="grid-mode-toggle" class="grid-mode-toggle" aria-pressed="false">Explore a year</button>
+              <label class="grid-year-control" id="grid-year-control" hidden>
+                <span>Monsoon year</span>
+                <input type="range" id="grid-year-slider" min="1981" max="2025" step="1" value="2025" disabled>
+                <output id="grid-year-value" for="grid-year-slider">2025</output>
+              </label>
+              <p class="grid-view-note" id="grid-view-note">Trend colors show whether each cell's 95% interval excludes zero.</p>
+            </div>
             <div id="grid-status" class="grid-status" role="status" aria-live="polite">
               <span class="status-dot"></span><span id="grid-status-text">Regional grid is waiting…</span>
               <button type="button" id="retry-grid" class="retry-grid-button" hidden>Retry grid</button>
             </div>
-            <div class="map-legend">
+            <div class="map-legend" id="trend-map-legend">
               <span><i class="legend-swatch wetter"></i>Grid · Increasing</span>
               <span><i class="legend-swatch drier"></i>Grid · Decreasing</span>
               <span><i class="legend-swatch unclear"></i>Grid · Unclear</span>
               <span><i class="legend-ring"></i>Five city details</span>
+            </div>
+            <div class="map-legend annual-map-legend" id="annual-map-legend" hidden>
+              <div class="annual-scale" aria-label="Shared rainfall scale">
+                <span id="year-scale-min">—</span>
+                <i class="annual-rainfall-gradient"></i>
+                <span id="year-scale-max">—</span>
+              </div>
+              <span><i class="legend-ring"></i>City rainfall that year</span>
             </div>
             <section class="grid-findings" id="grid-findings" aria-label="Regional grid findings" hidden>
               <div class="grid-findings-head">
