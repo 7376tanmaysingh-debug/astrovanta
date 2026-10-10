@@ -29,7 +29,7 @@
         <div class="hero-copy">
           <p class="eyebrow"><span class="eyebrow-dot"></span> NASA SPACE APPS 2026 · TREND DETECTIVE</p>
           <h1>One monsoon.<br><em>Many trajectories.</em></h1>
-          <p class="hero-intro">Follow 45 years of NASA rainfall data across the Indo-Gangetic Plain. See where the monsoon is trending wetter, drier, or where the signal is still unclear.</p>
+          <p class="hero-intro">Follow 45 years of NASA rainfall across central and eastern Uttar Pradesh. Compare city references with a model grid to see where the monsoon trends wetter, drier, or remains unclear.</p>
           <div class="hero-meta">
             <span class="meta-chip"><span class="meta-icon">⌖</span> Ayodhya region</span>
             <span class="meta-divider"></span>
@@ -70,7 +70,7 @@
             <div class="summary-stat unclear"><strong id="summary-unclear">—</strong><span>Unclear</span></div>
           </div>
           <p class="summary-finding" id="summary-finding">Waiting for NASA POWER data…</p>
-          <p class="summary-caveat">These are model grid cells sampled near five cities, not a complete regional map or a regional average.</p>
+          <p class="summary-caveat">The five-city counts are a reference comparison. The map grid covers a rectangular central/eastern Uttar Pradesh window, not a state boundary or a full Indo-Gangetic Plain analysis.</p>
         </div>
 
         <div class="dashboard">
@@ -78,15 +78,20 @@
             <div class="panel-top">
               <div>
                 <p class="panel-label">REGIONAL OVERVIEW</p>
-                <h3>Five windows on the monsoon</h3>
+                <h3>Regional rainfall trend grid</h3>
               </div>
-              <span class="panel-index">01 — 05</span>
+              <span class="panel-index">1981 — 2025</span>
             </div>
-            <div id="map" class="map" aria-label="Map of rainfall trend reference locations"></div>
+            <div id="map" class="map" aria-label="NASA POWER rainfall trend grid with five city references"></div>
+            <div id="grid-status" class="grid-status" role="status" aria-live="polite">
+              <span class="status-dot"></span><span id="grid-status-text">Regional grid is waiting…</span>
+              <button type="button" id="retry-grid" class="retry-grid-button" hidden>Retry grid</button>
+            </div>
             <div class="map-legend">
-              <span><i class="legend-dot wetter"></i> Increasing</span>
-              <span><i class="legend-dot drier"></i> Decreasing</span>
-              <span><i class="legend-dot unclear"></i> Unclear</span>
+              <span><i class="legend-swatch wetter"></i>Grid · Increasing</span>
+              <span><i class="legend-swatch drier"></i>Grid · Decreasing</span>
+              <span><i class="legend-swatch unclear"></i>Grid · Unclear</span>
+              <span><i class="legend-ring"></i>Five city details</span>
             </div>
             <div id="location-list" class="location-list" aria-label="Select a reference location"></div>
           </div>
