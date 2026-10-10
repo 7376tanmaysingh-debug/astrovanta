@@ -62,7 +62,7 @@ jobs:
 
   deploy:
     needs: validate
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || github.event.repository.has_pages == true)
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
