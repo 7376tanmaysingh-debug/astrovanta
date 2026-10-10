@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#091321">
+  <meta name="description" content="Explore NASA rainfall trends across the Indo-Gangetic Plain with AstroVanta.">
+  <title>Monsoon Lens — AstroVanta</title>
+  <link rel="preconnect" href="https://power.larc.nasa.gov">
+  <link rel="preconnect" href="https://tile.openstreetmap.org">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script defer src="app.js"></script>
+</head>
+<body>
+  <div class="page-shell" id="top">
+    <header class="topbar">
+      <a class="brand" href="#top" aria-label="AstroVanta home">
+        <span class="brand-mark" aria-hidden="true"><span></span><i></i></span>
+        <span>ASTROVANTA</span>
+      </a>
+      <div class="topbar-center"><span class="topbar-line"></span> EARTH SYSTEM FIELD NOTES <span class="note-number">01</span></div>
+      <a class="source-link" href="https://power.larc.nasa.gov/" target="_blank" rel="noreferrer">NASA POWER <span aria-hidden="true">↗</span></a>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow"><span class="eyebrow-dot"></span> NASA SPACE APPS 2026 · TREND DETECTIVE</p>
+          <h1>One monsoon.<br><em>Many trajectories.</em></h1>
+          <p class="hero-intro">Follow 45 years of NASA rainfall data across the Indo-Gangetic Plain. See where the monsoon is trending wetter, drier, or where the signal is still unclear.</p>
+          <div class="hero-meta">
+            <span class="meta-chip"><span class="meta-icon">⌖</span> Ayodhya region</span>
+            <span class="meta-divider"></span>
+            <span>1981—2025</span>
+            <span class="meta-divider"></span>
+            <span>June—September</span>
+          </div>
+        </div>
+        <aside class="hero-stamp">
+          <div class="orbit-ring"><span class="orbit-core"></span><span class="orbit-satellite"></span></div>
+          <div class="stamp-caption">FIELD STUDY<br><strong>001 / MONSOON</strong></div>
+          <p>Earth changes at different speeds, even under the same sky.</p>
+        </aside>
+      </section>
+
+      <section class="analysis-section" aria-labelledby="analysis-heading">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">THE QUESTION</p>
+            <h2 id="analysis-heading">Where is the rainfall story changing?</h2>
+          </div>
+          <div class="section-status" id="data-status" role="status" aria-live="polite">
+            <span class="status-dot"></span><span id="status-text">Preparing NASA POWER request…</span>
+          </div>
+        </div>
+
+        <div class="dashboard">
+          <div class="map-panel panel">
+            <div class="panel-top">
+              <div>
+                <p class="panel-label">REGIONAL OVERVIEW</p>
+                <h3>Five windows on the monsoon</h3>
+              </div>
+              <span class="panel-index">01 — 05</span>
+            </div>
+            <div id="map" class="map" aria-label="Map of rainfall trend reference locations"></div>
+            <div class="map-legend">
+              <span><i class="legend-dot wetter"></i> Increasing</span>
+              <span><i class="legend-dot drier"></i> Decreasing</span>
+              <span><i class="legend-dot unclear"></i> Unclear</span>
+            </div>
+            <div id="location-list" class="location-list" aria-label="Select a reference location"></div>
+          </div>
+
+          <div class="detail-panel panel">
+            <div class="detail-heading">
+              <div>
+                <p class="panel-label">SELECTED REFERENCE CELL</p>
+                <h3 id="selected-name">Ayodhya</h3>
+                <p id="selected-region" class="muted">Uttar Pradesh, India</p>
+              </div>
+              <span id="signal-pill" class="signal-pill neutral">Loading</span>
+            </div>
+
+            <div class="metrics">
+              <article class="metric-card">
+                <p>MONSOON MEAN</p>
+                <div><strong id="mean-value">—</strong><span>mm / season</span></div>
+                <small>1981–2025 available seasons</small>
+              </article>
+              <article class="metric-card metric-emphasis">
+                <p>TREND</p>
+                <div><strong id="trend-value">—</strong><span>mm / decade</span></div>
+                <small id="trend-note">Theil–Sen slope</small>
+              </article>
+            </div>
+
+            <div class="chart-panel">
+              <div class="chart-header">
+                <div>
+                  <p class="panel-label">ANNUAL MONSOON TOTAL</p>
+                  <h4>Rainfall, year by year</h4>
+                </div>
+                <button type="button" id="download-csv" class="download-button" disabled>Download CSV <span aria-hidden="true">↓</span></button>
+              </div>
+              <div id="chart" class="chart" aria-label="Chart of annual June to September rainfall"></div>
+              <div class="chart-legend"><span><i class="line-key actual"></i> Seasonal total</span><span><i class="line-key trend"></i> Long-term trend</span></div>
+            </div>
+
+            <div class="confidence-row">
+              <div class="confidence-icon" aria-hidden="true">↗</div>
+              <div>
+                <p class="panel-label">95% BLOCK-BOOTSTRAP INTERVAL</p>
+                <strong id="interval-value">Waiting for data</strong>
+              </div>
+              <p id="change-value" class="change-value">—</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="method-strip">
+        <div class="method-number">A</div>
+        <div><p class="panel-label">HOW TO READ THIS</p><p>Each dot represents a NASA POWER model grid cell sampled near a city. The trend is a descriptive signal, not an explanation of why rainfall changed. “Unclear” means the 95% interval includes zero.</p></div>
+        <a href="https://power.larc.nasa.gov/docs/methodology/data/sources/" target="_blank" rel="noreferrer">About the data <span aria-hidden="true">↗</span></a>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <span>ASTROVANTA <span class="footer-separator">/</span> MONSOON LENS</span>
+      <span>NASA POWER · MERRA-2 · OpenStreetMap</span>
+    </footer>
+  </div>
+</body>
+</html>
