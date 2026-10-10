@@ -1,44 +1,66 @@
 # AstroVanta — Monsoon Lens
 
-A first NASA Space Apps prototype for the challenge **Be An Earth System Trend Detective!**
+**One monsoon. Many trajectories.** Explore how June–September rainfall has changed across a central and eastern Uttar Pradesh sample using NASA POWER data.
+
+This project was built for NASA Space Apps Challenge 2026, [“Be An Earth System Trend Detective!”](https://www.spaceappschallenge.org/2026/challenges/be-an-earth-system-trend-detective/).
 
 ## Research question
 
-Across the Indo-Gangetic Plain around Ayodhya, where has June–September rainfall increased or decreased since 1981, by how much, and which trends are statistically clear?
+Across the sampled area around Ayodhya, where has monsoon rainfall changed since 1981, by how much, and which signals are statistically clear?
 
-## What this prototype does
+## Explore the app
 
-- Fetches daily precipitation for a regional NASA POWER bounding-box grid in one-calendar-year requests (the regional daily API limit is 366 days), plus five city reference series: Ayodhya, Lucknow, Prayagraj, Gorakhpur, and Varanasi.
-- Adds daily rainfall from June 1 through September 30 into a monsoon total for each complete year from 1981 to 2025.
-- Estimates each location's trend with the Theil–Sen slope.
-- Estimates a 95% interval with a circular five-year moving-block bootstrap. A trend is marked as increasing or decreasing only when the interval excludes zero.
-- Clicking a regional grid cell loads its annual monsoon series, trend estimate, and confidence interval into the detail chart; the five city references remain selectable.
-- Switch the map to a selected-year rainfall view and scrub from 1981 to 2025; the same rainfall color scale is used across grid cells and city references, while tooltips compare each cell with its 1981–2025 mean.
-- Compare 1981–1990 with 2016–2025 average monsoon rainfall for each grid cell and city reference. A 95% circular five-year moving-block bootstrap interval is calculated within each decade window; the comparison is not a trend estimate. Cell-level intervals are not adjusted for testing multiple cells.
-- The regional CSV includes each cell's early and recent period means, their difference, and the period-comparison interval and signal.
-- Shows the regional grid trend classification and 95% interval on map-cell tooltips, alongside selectable city annual series, confidence intervals, and CSV export.
-- Exports annual rainfall, trend estimates, 95% intervals, classification, and coordinates for each regional grid cell as a CSV.
-- Writes a data-driven science story comparing regional grid signals with the five city references, while stating model and study-area caveats.
+- **Trend map:** inspect 49 NASA POWER grid cells and five city reference points. Click a grid cell to load its annual series and trend details.
+- **By year:** scrub through 1981–2025 to see each complete June–September season on a shared rainfall scale.
+- **Period change:** compare mean rainfall in 1981–1990 with 2016–2025. The map reports the recent-minus-early difference and a 95% interval.
+- **Detail chart:** inspect annual totals, Theil–Sen trend estimates, intervals, and CSV downloads for the selected city or grid cell.
+- **Grid readout:** compare increasing, decreasing, and unclear signals and inspect the largest point-estimate slopes.
 
-The map now displays the daily regional API grid for a rectangular window from 24.5°N to 27.5°N and 79.5°E to 84°E. The five city cards remain the detailed reference series. This bounding box is not an administrative boundary and does not cover the full Indo-Gangetic Plain. POWER meteorological data are based on NASA's MERRA-2 assimilation model at approximately 0.5° by 0.625° resolution. A grid cell is a model estimate, not a local rain gauge. Results are descriptive and do not establish causes.
+The app requests data directly from NASA POWER in your browser. It needs an internet connection; no API key or build step is required. Completed data is cached in browser storage for one day.
 
 ## Run locally
 
-Serve this folder over HTTP so the browser can request NASA POWER:
+Open PowerShell in the project folder and run:
 
-1. Open a terminal in the project folder.
-2. Run: python -m http.server 8000
-3. Visit: http://localhost:8000
+```powershell
+py -m http.server 8000
+```
 
-The map uses Leaflet and OpenStreetMap tiles. NASA data is requested directly from NASA POWER. City data and completed regional years are cached in browser storage for one day; an interrupted regional download resumes from its last completed year.
+Then open [http://localhost:8000](http://localhost:8000). Keep the terminal open while using the site; press **Ctrl+C** in that terminal to stop the server.
 
-## Data and method
+If `py` is unavailable, try `python -m http.server 8000`. On macOS or Linux, use `python3 -m http.server 8000`.
 
-- NASA POWER daily API: https://power.larc.nasa.gov/docs/services/api/temporal/daily/
-- NASA POWER source and resolution notes: https://power.larc.nasa.gov/docs/methodology/data/sources/
-- Parameter: PRECTOTCORR (corrected precipitation, mm/day), Agroclimatology community.
-- Analysis window: 1981–2025, using complete June–September seasons.
-- Trend: median of all pairwise slopes, reported in millimetres per decade.
-- Uncertainty: percentile interval from 500 circular five-year block resamples of detrended residuals. This is an exploratory interval; the locations are a small comparison sample and do not replace a full spatial analysis.
+## Publish with GitHub Pages
 
-NASA POWER data are provided by NASA Langley Research Center. Map tiles are © OpenStreetMap contributors.
+The repository includes a GitHub Actions workflow that checks the JavaScript and HTML references, then deploys the static site from `main`.
+
+To turn on the public site once:
+
+1. Open the repository’s **Settings → Pages**.
+2. Under **Build and deployment**, choose **GitHub Actions** as the source.
+3. Open the **Actions** tab and wait for **Validate and deploy AstroVanta** to finish.
+
+After the first successful run, changes pushed to `main` publish automatically. The site URL will be [https://7376tanmaysingh-debug.github.io/astrovanta/](https://7376tanmaysingh-debug.github.io/astrovanta/).
+
+## Data and methods
+
+- **Source:** NASA POWER Daily API, Agroclimatology community, parameter `PRECTOTCORR` (corrected precipitation, mm/day). Daily values from June 1 through September 30 are summed to seasonal totals.
+- **Period:** 1981–2025, the 45 complete monsoon seasons used in this version.
+- **Spatial sample:** a 49-cell rectangular grid from 24.5°N to 27.5°N and 79.5°E to 84°E, plus city references at Ayodhya, Lucknow, Prayagraj, Gorakhpur, and Varanasi.
+- **Grid:** NASA POWER meteorological data are based on MERRA-2 at 0.5° × 0.625° resolution. Values are model-based estimates for grid cells, not measurements from local rain gauges.
+- **Trend:** Theil–Sen median pairwise slope, shown in mm per decade. A 95% circular five-year moving-block bootstrap interval is estimated from detrended residuals using 500 resamples. “Increasing” or “decreasing” means the interval excludes zero; otherwise the signal is labeled “unclear.”
+- **Period comparison:** recent-period mean minus early-period mean, with a 95% circular five-year moving-block bootstrap interval calculated within each 10-year window (500 resamples). This comparison is not a trend estimate. Grid-cell intervals are exploratory and are not adjusted for testing many cells.
+
+## Interpretation and limitations
+
+The grid bounds are a rectangular sample chosen around the city references; they are not an administrative boundary and do not represent the full Indo-Gangetic Plain. The five city references are comparison points, not a substitute for the regional grid. Results describe the sampled NASA POWER series; they do not establish why rainfall changed. Estimates and intervals can change when NASA updates the underlying archive.
+
+## Sources and acknowledgements
+
+- [NASA POWER Daily API documentation](https://power.larc.nasa.gov/docs/services/api/temporal/daily/)
+- [NASA POWER data sources and methodology](https://power.larc.nasa.gov/docs/methodology/)
+- [NASA POWER meteorological spatial resolution](https://power.larc.nasa.gov/docs/services/)
+- [NASA POWER Parameter Dictionary](https://power.larc.nasa.gov/parameters/)
+- Map tiles © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright), displayed with Leaflet.
+
+NASA POWER data are provided by NASA Langley Research Center.
