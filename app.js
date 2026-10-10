@@ -231,7 +231,7 @@ async function loadRegionalGrid() {
     renderMarkers();
     renderRegionalFindings();
     renderScienceStory();
-    setGridStatus("NASA POWER trend grid loaded · " + regionalGrid.length + " cells · click a cell for its annual detail", "ready");
+    setGridStatus("NASA POWER trend grid loaded · " + regionalGrid.length + " cells · click for annual detail, hover for interval", "ready");
   } catch (error) {
     regionalGrid = [];
     renderRegionalGrid();
@@ -689,7 +689,10 @@ function selectLocation(id) {
   const hadGridSelection = Boolean(selectedGridCellId);
   selectedGridCellId = null;
   selectedId = id;
-  if (hadGridSelection) renderRegionalGrid();
+  if (hadGridSelection) {
+    renderRegionalGrid();
+    setGridStatus("NASA POWER trend grid loaded · " + regionalGrid.length + " cells · click for annual detail, hover for interval", "ready");
+  }
   renderSelectedSeries(result.location, result.seasons, trendById[id] || bootstrapInterval(result.seasons, result.location.seed), "city");
   renderMarkers();
 }
@@ -700,6 +703,11 @@ function selectGridCell(cell) {
   renderRegionalGrid();
   Object.keys(mapMarkers).forEach(function (id) { mapMarkers[id].setRadius(7); });
   renderSelectedSeries(cell.location, cell.seasons, cell.trend, "grid");
+  setGridStatus(
+    "Selected grid cell · " + cell.location.lat.toFixed(2) + "°N, " + cell.location.lon.toFixed(2) +
+    "°E · annual series shown below",
+    "ready"
+  );
 }
 
 function renderSelectedSeries(location, seasons, trend, seriesType) {
