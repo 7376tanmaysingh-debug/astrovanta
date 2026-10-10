@@ -99,6 +99,25 @@ h3 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -.02em; }
 
 .map-legend { display: flex; flex-wrap: wrap; gap: 17px; padding: 14px 0 17px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 10px; }
 .map-legend span { display: inline-flex; align-items: center; gap: 7px; }
+.grid-findings {
+  margin-top: 13px;
+  padding: 13px;
+  border: 1px solid rgba(207,224,237,.1);
+  border-radius: 8px;
+  background: rgba(255,255,255,.025);
+}
+.grid-findings[hidden] { display: none; }
+.grid-findings-head { display: flex; justify-content: space-between; align-items: start; gap: 10px; }
+.grid-findings-head .panel-label { margin: 0; }
+.grid-summary-stats { margin: 10px 0; }
+.grid-summary-stats .summary-stat { padding: 9px 10px; }
+.grid-summary-stats .summary-stat strong { font-size: 20px; }
+.grid-summary-finding { margin: 0 0 10px; color: var(--text); font-size: 11px; line-height: 1.55; }
+.grid-extremes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.grid-extremes p { display: flex; flex-direction: column; gap: 5px; min-width: 0; margin: 0; padding: 9px 10px; border-radius: 6px; background: rgba(255,255,255,.035); }
+.grid-extremes span { color: var(--muted); font-size: 9px; letter-spacing: .04em; }
+.grid-extremes strong { color: var(--text); font-size: 10px; font-weight: 500; line-height: 1.5; overflow-wrap: anywhere; }
+.grid-findings-note { color: var(--soft); font-size: 9px; line-height: 1.5; margin: 10px 0 0; }
 .legend-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
 .legend-dot.wetter { background: var(--lime); box-shadow: 0 0 7px rgba(215,255,100,.55); }
 .legend-dot.drier { background: var(--coral); box-shadow: 0 0 7px rgba(255,154,130,.45); }
@@ -186,6 +205,7 @@ h3 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -.02em; }
   .summary-stat { padding: 10px; }
   .summary-stat strong { font-size: 20px; }
   .summary-stat span { font-size: 9px; }
+  .grid-extremes { grid-template-columns: 1fr; }
   .topbar { min-height: 68px; }
   .topbar-center { display: none; }
   .brand { font-size: 10px; }
