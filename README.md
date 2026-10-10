@@ -38,9 +38,9 @@ To turn on the public site once:
 
 1. Open the repository’s **Settings → Pages**.
 2. Under **Build and deployment**, choose **GitHub Actions** as the source.
-3. Open the **Actions** tab and wait for **Validate and deploy AstroVanta** to finish.
+3. Open **Actions → Validate and deploy AstroVanta**, choose **Run workflow** on `main`, and start the first deployment.
 
-After the first successful run, changes pushed to `main` publish automatically. The site URL will be [https://7376tanmaysingh-debug.github.io/astrovanta/](https://7376tanmaysingh-debug.github.io/astrovanta/).
+After that first successful run, changes pushed to `main` publish automatically. The site URL will be [https://7376tanmaysingh-debug.github.io/astrovanta/](https://7376tanmaysingh-debug.github.io/astrovanta/).
 
 ## Data and methods
 
