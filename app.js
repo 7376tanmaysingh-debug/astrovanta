@@ -254,7 +254,7 @@ function renderRegionalSummary() {
   const largest = cells.reduce(function (best, cell) {
     return Math.abs(cell.trend.slope) > Math.abs(best.trend.slope) ? cell : best;
   });
-  finding += " Largest point estimate: " + largest.location.name + " (" +
+  finding += " Largest-magnitude point estimate: " + largest.location.name + " (" +
     signed(largest.trend.slope * 10, 1) + " mm/decade).";
   document.getElementById("summary-finding").textContent = finding;
 }
