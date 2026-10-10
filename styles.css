@@ -97,17 +97,25 @@ h3 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -.02em; }
 .legend-swatch.unclear { background: #94a5ae; }
 .legend-ring { display: inline-block; width: 9px; height: 9px; border: 2px solid var(--cyan); border-radius: 50%; background: var(--bg); }
 
-.grid-map-controls { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px 14px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.grid-map-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 11px 14px; padding: 12px 0; border-bottom: 1px solid var(--line); }
 .grid-map-controls[hidden], .grid-year-control[hidden], .map-legend[hidden] { display: none; }
-.grid-mode-toggle { border: 1px solid rgba(215,255,100,.4); border-radius: 7px; padding: 8px 11px; color: var(--lime); background: rgba(215,255,100,.06); font: inherit; font-size: 10px; cursor: pointer; white-space: nowrap; }
-.grid-mode-toggle:hover { background: rgba(215,255,100,.13); }
-.grid-year-control { display: grid; grid-template-columns: auto minmax(70px, 1fr) auto; align-items: center; gap: 10px; color: var(--muted); font-size: 10px; }
+.grid-mode-tabs { display: flex; gap: 4px; flex: 0 0 auto; padding: 3px; border: 1px solid var(--line); border-radius: 8px; background: rgba(8,18,30,.35); }
+.grid-mode-option { border: 0; border-radius: 5px; padding: 7px 9px; color: var(--muted); background: transparent; font: inherit; font-size: 10px; cursor: pointer; white-space: nowrap; }
+.grid-mode-option:hover { color: var(--text); background: rgba(255,255,255,.045); }
+.grid-mode-option[aria-pressed="true"] { color: var(--lime); background: rgba(215,255,100,.1); box-shadow: inset 0 0 0 1px rgba(215,255,100,.2); }
+.grid-year-control { flex: 1 1 250px; display: grid; grid-template-columns: auto minmax(70px, 1fr) auto; align-items: center; gap: 10px; color: var(--muted); font-size: 10px; }
 .grid-year-control input { width: 100%; accent-color: var(--lime); cursor: pointer; }
 .grid-year-control output { min-width: 34px; color: var(--lime); font-size: 12px; font-weight: 700; text-align: right; }
-.grid-view-note { grid-column: 1 / -1; margin: 0; color: var(--muted); font-size: 10px; line-height: 1.5; }
-.annual-scale { flex: 1 1 200px; display: flex; align-items: center; gap: 8px; min-width: 180px; }
-.annual-rainfall-gradient { flex: 1; min-width: 60px; height: 10px; border: 1px solid rgba(9,19,33,.7); border-radius: 999px; background: linear-gradient(90deg, #27336a, #346b99, #3d9b9d, #96c881, #d7ff64); }
-.annual-map-legend { align-items: center; }
+.grid-view-note { flex: 1 0 100%; margin: 0; color: var(--muted); font-size: 10px; line-height: 1.5; }
+.annual-scale, .period-scale { flex: 1 1 200px; display: flex; align-items: center; gap: 8px; min-width: 180px; }
+.annual-rainfall-gradient, .period-rainfall-gradient { flex: 1; min-width: 60px; height: 10px; border: 1px solid rgba(9,19,33,.7); border-radius: 999px; }
+.annual-rainfall-gradient { background: linear-gradient(90deg, #27336a, #346b99, #3d9b9d, #96c881, #d7ff64); }
+.period-rainfall-gradient { background: linear-gradient(90deg, #ff9a82, #94a5ae 50%, #72d9e9); }
+.period-map-legend { align-items: center; }
+@media (max-width: 520px) {
+  .grid-mode-tabs { flex: 1 1 100%; justify-content: space-between; }
+  .grid-mode-option { flex: 1; padding: 7px 5px; }
+}
 .map-legend { display: flex; flex-wrap: wrap; gap: 17px; padding: 14px 0 17px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 10px; }
 .map-legend span { display: inline-flex; align-items: center; gap: 7px; }
 .grid-findings {
