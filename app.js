@@ -25,6 +25,10 @@ let trendById = {};
 let regionalGrid = [];
 let gridLayers = [];
 let gridLoading = false;
+let gridMapMode = "trend";
+let gridSelectedYear = END_YEAR;
+let gridRainfallRange = null;
+const GRID_RAINFALL_COLORS = ["#27336a", "#346b99", "#3d9b9d", "#96c881", "#d7ff64"];
 
 document.addEventListener("DOMContentLoaded", function () {
   initMap();
@@ -32,6 +36,20 @@ document.addEventListener("DOMContentLoaded", function () {
   document.getElementById("download-grid-csv").addEventListener("click", downloadGridCsv);
   document.getElementById("retry-load").addEventListener("click", loadAllData);
   document.getElementById("retry-grid").addEventListener("click", loadRegionalGrid);
+  document.getElementById("grid-mode-toggle").addEventListener("click", function () {
+    gridMapMode = gridMapMode === "trend" ? "year" : "trend";
+    updateGridMapControls();
+    renderRegionalGrid();
+    renderMarkers(true);
+    setGridStatus(gridModeStatusMessage(), "ready");
+  });
+  document.getElementById("grid-year-slider").addEventListener("input", function () {
+    gridSelectedYear = Number(this.value);
+    updateGridMapControls();
+    renderRegionalGrid();
+    renderMarkers(true);
+    setGridStatus(gridModeStatusMessage(), "ready");
+  });
   loadAllData();
 });
 
@@ -227,13 +245,17 @@ async function loadRegionalGrid() {
       }
     }
     regionalGrid = analyzed;
+    gridRainfallRange = getGridRainfallRange(regionalGrid);
+    updateGridMapControls();
     renderRegionalGrid();
     renderMarkers();
     renderRegionalFindings();
     renderScienceStory();
-    setGridStatus("NASA POWER trend grid loaded · " + regionalGrid.length + " cells · click for annual detail, hover for interval", "ready");
+    setGridStatus(gridModeStatusMessage(), "ready");
   } catch (error) {
     regionalGrid = [];
+    gridRainfallRange = null;
+    updateGridMapControls();
     renderRegionalGrid();
     renderRegionalFindings();
     renderScienceStory();
@@ -624,6 +646,73 @@ function gridSpacing(values, fallback) {
   return steps.length ? median(steps) : fallback;
 }
 
+function getGridRainfallRange(cells) {
+  const values = [];
+  cells.forEach(function (cell) {
+    cell.seasons.forEach(function (point) { values.push(point.rainfall); });
+  });
+  Object.keys(resultsById).forEach(function (id) {
+    resultsById[id].seasons.forEach(function (point) { values.push(point.rainfall); });
+  });
+  if (!values.length) return null;
+  return {
+    min: Math.min.apply(null, values),
+    max: Math.max.apply(null, values)
+  };
+}
+
+function gridModeStatusMessage() {
+  if (gridMapMode === "year") {
+    return "Annual June–September rainfall · " + gridSelectedYear + " · shared scale across grid and city references";
+  }
+  return "NASA POWER trend grid loaded · " + regionalGrid.length + " cells · click for annual detail, hover for interval";
+}
+
+function updateGridMapControls() {
+  const controls = document.getElementById("grid-map-controls");
+  if (!controls) return;
+  if (!regionalGrid.length) {
+    controls.hidden = true;
+    return;
+  }
+  controls.hidden = false;
+  const yearMode = gridMapMode === "year";
+  const toggle = document.getElementById("grid-mode-toggle");
+  toggle.textContent = yearMode ? "Show trend map" : "Explore a year";
+  toggle.setAttribute("aria-pressed", yearMode ? "true" : "false");
+  document.getElementById("grid-year-control").hidden = !yearMode;
+  const slider = document.getElementById("grid-year-slider");
+  slider.disabled = false;
+  slider.value = String(gridSelectedYear);
+  document.getElementById("grid-year-value").textContent = String(gridSelectedYear);
+  document.getElementById("grid-map-title").textContent =
+    yearMode ? "Annual monsoon rainfall · " + gridSelectedYear : "Regional rainfall trend grid";
+  document.getElementById("trend-map-legend").hidden = yearMode;
+  document.getElementById("annual-map-legend").hidden = !yearMode;
+  document.getElementById("grid-view-note").textContent = yearMode
+    ? "Map colors show June–September rainfall for the selected year; the readout below summarizes 1981–2025 trends."
+    : "Trend colors show whether each cell's 95% interval excludes zero.";
+  if (gridRainfallRange) {
+    document.getElementById("year-scale-min").textContent = formatNumber(gridRainfallRange.min, 0) + " mm";
+    document.getElementById("year-scale-max").textContent = formatNumber(gridRainfallRange.max, 0) + " mm";
+  }
+}
+
+function gridRainfallColor(value) {
+  if (!Number.isFinite(value) || !gridRainfallRange) return "#94a5ae";
+  const span = gridRainfallRange.max - gridRainfallRange.min;
+  const position = Math.max(0, Math.min(1, (value - gridRainfallRange.min) / (span || 1)));
+  const scaled = position * (GRID_RAINFALL_COLORS.length - 1);
+  const lower = Math.floor(scaled);
+  const upper = Math.min(lower + 1, GRID_RAINFALL_COLORS.length - 1);
+  const fraction = scaled - lower;
+  const first = GRID_RAINFALL_COLORS[lower].match(/[0-9a-f]{2}/gi).map(function (part) { return parseInt(part, 16); });
+  const second = GRID_RAINFALL_COLORS[upper].match(/[0-9a-f]{2}/gi).map(function (part) { return parseInt(part, 16); });
+  return "#" + first.map(function (channel, index) {
+    return Math.round(channel + (second[index] - channel) * fraction).toString(16).padStart(2, "0");
+  }).join("");
+}
+
 function renderRegionalGrid() {
   if (!mapInstance) return;
   gridLayers.forEach(function (layer) { mapInstance.removeLayer(layer); });
@@ -631,33 +720,44 @@ function renderRegionalGrid() {
   if (!regionalGrid.length) return;
   const latitudeStep = gridSpacing(regionalGrid.map(function (cell) { return cell.location.lat; }), .5);
   const longitudeStep = gridSpacing(regionalGrid.map(function (cell) { return cell.location.lon; }), .625);
+  const yearMode = gridMapMode === "year";
   regionalGrid.forEach(function (cell) {
     const location = cell.location;
     const trend = cell.trend;
     const signal = getSignal(trend);
+    const season = yearMode ? cell.seasons.find(function (point) { return point.year === gridSelectedYear; }) : null;
+    const fill = yearMode ? gridRainfallColor(season ? season.rainfall : NaN) : signalColor(signal);
+    const selected = location.id === selectedGridCellId;
     const rectangle = L.rectangle([
       [location.lat - latitudeStep / 2, location.lon - longitudeStep / 2],
       [location.lat + latitudeStep / 2, location.lon + longitudeStep / 2]
     ], {
-      color: location.id === selectedGridCellId ? "#d7ff64" : "#091321",
-      weight: location.id === selectedGridCellId ? 2 : .6,
+      color: selected ? "#d7ff64" : "#091321",
+      weight: selected ? 2 : .6,
       opacity: .82,
-      fillColor: signalColor(signal),
-      fillOpacity: location.id === selectedGridCellId ? .66 : .48
+      fillColor: fill,
+      fillOpacity: selected ? .72 : (yearMode ? .66 : .48)
     }).addTo(mapInstance);
-    const label = signal === "up" ? "Increasing" : signal === "down" ? "Decreasing" : "Unclear";
-    rectangle.bindTooltip(
-      "POWER grid cell · " + location.lat.toFixed(2) + "°N, " + location.lon.toFixed(2) +
-      "°E<br>" + label + " · " + signed(trend.slope * 10, 1) + " mm/decade<br>95% interval: " +
-      signed(trend.low * 10, 1) + " to " + signed(trend.high * 10, 1) + " mm/decade",
-      { sticky: true }
-    );
+    let tooltip;
+    if (yearMode) {
+      const average = cell.seasons.reduce(function (sum, point) { return sum + point.rainfall; }, 0) / cell.seasons.length;
+      tooltip = "POWER grid cell · " + location.lat.toFixed(2) + "°N, " + location.lon.toFixed(2) +
+        "°E<br>June–September " + gridSelectedYear + ": " +
+        (season ? formatNumber(season.rainfall, 0) + " mm" : "no complete season") +
+        (season ? "<br>" + signed(season.rainfall - average, 0) + " mm vs 1981–2025 cell mean" : "");
+    } else {
+      const label = signal === "up" ? "Increasing" : signal === "down" ? "Decreasing" : "Unclear";
+      tooltip = "POWER grid cell · " + location.lat.toFixed(2) + "°N, " + location.lon.toFixed(2) +
+        "°E<br>" + label + " · " + signed(trend.slope * 10, 1) + " mm/decade<br>95% interval: " +
+        signed(trend.low * 10, 1) + " to " + signed(trend.high * 10, 1) + " mm/decade";
+    }
+    rectangle.bindTooltip(tooltip, { sticky: true });
     rectangle.on("click", function () { selectGridCell(cell); });
     gridLayers.push(rectangle);
   });
 }
 
-function renderMarkers() {
+function renderMarkers(preserveView) {
   if (!mapInstance) return;
   Object.keys(mapMarkers).forEach(function (id) { mapInstance.removeLayer(mapMarkers[id]); });
   mapMarkers = {};
@@ -665,22 +765,33 @@ function renderMarkers() {
     const result = resultsById[location.id];
     const trend = result ? trendById[location.id] : null;
     const signal = trend ? getSignal(trend) : "unclear";
+    const season = gridMapMode === "year" && result
+      ? result.seasons.find(function (point) { return point.year === gridSelectedYear; })
+      : null;
+    const fill = gridMapMode === "year"
+      ? gridRainfallColor(season ? season.rainfall : NaN)
+      : signalColor(signal);
     const marker = L.circleMarker([location.lat, location.lon], {
       radius: !selectedGridCellId && location.id === selectedId ? 9 : 7,
       color: "#091321",
       weight: 2.2,
-      fillColor: signalColor(signal),
+      fillColor: fill,
       fillOpacity: 1
     }).addTo(mapInstance);
-    marker.bindTooltip(location.name + (trend ? " · " + signed(trend.slope * 10, 1) + " mm/decade" : ""), { direction: "top", offset: [0, -7] });
+    const tooltip = gridMapMode === "year"
+      ? location.name + " · " + gridSelectedYear + ": " + (season ? formatNumber(season.rainfall, 0) + " mm" : "no complete season")
+      : location.name + (trend ? " · " + signed(trend.slope * 10, 1) + " mm/decade" : "");
+    marker.bindTooltip(tooltip, { direction: "top", offset: [0, -7] });
     marker.on("click", function () { selectLocation(location.id); });
     mapMarkers[location.id] = marker;
   });
-  const extentPoints = LOCATIONS.map(function (location) { return [location.lat, location.lon]; })
-    .concat(regionalGrid.map(function (cell) { return [cell.location.lat, cell.location.lon]; }));
-  const bounds = L.latLngBounds(extentPoints);
-  mapInstance.fitBounds(bounds.pad(.08), { maxZoom: 7 });
-  window.setTimeout(function () { mapInstance.invalidateSize(); }, 100);
+  if (!preserveView) {
+    const extentPoints = LOCATIONS.map(function (location) { return [location.lat, location.lon]; })
+      .concat(regionalGrid.map(function (cell) { return [cell.location.lat, cell.location.lon]; }));
+    const bounds = L.latLngBounds(extentPoints);
+    mapInstance.fitBounds(bounds.pad(.08), { maxZoom: 7 });
+    window.setTimeout(function () { mapInstance.invalidateSize(); }, 100);
+  }
 }
 
 function selectLocation(id) {
@@ -691,7 +802,7 @@ function selectLocation(id) {
   selectedId = id;
   if (hadGridSelection) {
     renderRegionalGrid();
-    setGridStatus("NASA POWER trend grid loaded · " + regionalGrid.length + " cells · click for annual detail, hover for interval", "ready");
+    setGridStatus(gridModeStatusMessage(), "ready");
   }
   renderSelectedSeries(result.location, result.seasons, trendById[id] || bootstrapInterval(result.seasons, result.location.seed), "city");
   renderMarkers();
