@@ -84,7 +84,11 @@
             </div>
             <div id="map" class="map" aria-label="NASA POWER rainfall grid with five city references"></div>
             <div class="grid-map-controls" id="grid-map-controls" hidden>
-              <button type="button" id="grid-mode-toggle" class="grid-mode-toggle" aria-pressed="false">Explore a year</button>
+              <div class="grid-mode-tabs" role="group" aria-label="Grid map view">
+                <button type="button" id="trend-view-button" class="grid-mode-option" aria-pressed="true">Trend</button>
+                <button type="button" id="year-view-button" class="grid-mode-option" aria-pressed="false">By year</button>
+                <button type="button" id="period-view-button" class="grid-mode-option" aria-pressed="false">Period change</button>
+              </div>
               <label class="grid-year-control" id="grid-year-control" hidden>
                 <span>Monsoon year</span>
                 <input type="range" id="grid-year-slider" min="1981" max="2025" step="1" value="2025" disabled>
@@ -109,6 +113,14 @@
                 <span id="year-scale-max">—</span>
               </div>
               <span><i class="legend-ring"></i>City rainfall that year</span>
+            </div>
+            <div class="map-legend period-map-legend" id="period-map-legend" hidden>
+              <div class="period-scale" aria-label="Difference in seasonal mean rainfall">
+                <span id="period-scale-min">—</span>
+                <i class="period-rainfall-gradient"></i>
+                <span id="period-scale-max">—</span>
+              </div>
+              <span><i class="legend-ring"></i>City reference difference</span>
             </div>
             <section class="grid-findings" id="grid-findings" aria-label="Regional grid findings" hidden>
               <div class="grid-findings-head">
