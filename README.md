@@ -30,17 +30,13 @@ Then open [http://localhost:8000](http://localhost:8000). Keep the terminal open
 
 If `py` is unavailable, try `python -m http.server 8000`. On macOS or Linux, use `python3 -m http.server 8000`.
 
-## Publish with GitHub Pages
+## Public demo
 
-The repository includes a GitHub Actions workflow that checks the JavaScript and HTML references, then deploys the static site from `main`.
+[Open AstroVanta on GitHub Pages](https://7376tanmaysingh-debug.github.io/astrovanta/).
 
-To turn on the public site once:
+GitHub Pages is configured to publish this static site through the **Validate and deploy AstroVanta** workflow. It checks the JavaScript syntax and verifies that app element references exist in the HTML, then deploys from `main`. Future pushes to `main` publish automatically.
 
-1. Open the repository’s **Settings → Pages**.
-2. Under **Build and deployment**, choose **GitHub Actions** as the source.
-3. Open **Actions → Validate and deploy AstroVanta**, choose **Run workflow** on `main`, and start the first deployment.
-
-After that first successful run, changes pushed to `main` publish automatically. The site URL will be [https://7376tanmaysingh-debug.github.io/astrovanta/](https://7376tanmaysingh-debug.github.io/astrovanta/).
+To configure this in another fork, open **Settings → Pages**, choose **GitHub Actions** under **Build and deployment**, then run **Validate and deploy AstroVanta** from the **Actions** tab on `main`.
 
 ## Data and methods
 
