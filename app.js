@@ -812,11 +812,15 @@ function renderRegionalGrid() {
         (season ? formatNumber(season.rainfall, 0) + " mm" : "no complete season") +
         (season ? "<br>" + signed(season.rainfall - average, 0) + " mm vs 1981–2025 cell mean" : "");
     } else if (periodMode) {
-      tooltip = "POWER grid cell · " + location.lat.toFixed(2) + "°N, " + location.lon.toFixed(2) +
-        "°E<br>1981–1990 mean: " + formatNumber(period.earlyMean, 0) + " mm/season" +
-        "<br>2016–2025 mean: " + formatNumber(period.recentMean, 0) + " mm/season" +
-        "<br>Difference: " + signed(difference, 0) + " mm/season" +
-        "<br>95% interval: " + signed(period.low, 0) + " to " + signed(period.high, 0) + " mm/season";
+      const base = "POWER grid cell · " + location.lat.toFixed(2) + "°N, " + location.lon.toFixed(2) + "°E";
+      tooltip = Number.isFinite(period.earlyMean) && Number.isFinite(period.recentMean)
+        ? base + "<br>1981–1990 mean: " + formatNumber(period.earlyMean, 0) + " mm/season" +
+          "<br>2016–2025 mean: " + formatNumber(period.recentMean, 0) + " mm/season" +
+          "<br>Difference: " + signed(difference, 0) + " mm/season" +
+          (Number.isFinite(period.low) && Number.isFinite(period.high)
+            ? "<br>95% interval: " + signed(period.low, 0) + " to " + signed(period.high, 0) + " mm/season"
+            : "<br>95% interval unavailable · too few complete seasons")
+        : base + "<br>Insufficient complete seasons in one or both comparison windows";
     } else {
       const label = signal === "up" ? "Increasing" : signal === "down" ? "Decreasing" : "Unclear";
       tooltip = "POWER grid cell · " + location.lat.toFixed(2) + "°N, " + location.lon.toFixed(2) +
@@ -842,9 +846,10 @@ function renderMarkers(preserveView) {
       : null;
     const period = gridMapMode === "period" ? periodById[location.id] : null;
     const difference = period ? period.difference : NaN;
+    const periodSignal = period ? getSignal(period) : "unclear";
     const fill = gridMapMode === "year"
       ? gridRainfallColor(season ? season.rainfall : NaN)
-      : gridMapMode === "period" ? signalColor(getSignal(period)) : signalColor(signal);
+      : gridMapMode === "period" ? signalColor(periodSignal) : signalColor(signal);
     const marker = L.circleMarker([location.lat, location.lon], {
       radius: !selectedGridCellId && location.id === selectedId ? 9 : 7,
       color: "#091321",
@@ -855,8 +860,14 @@ function renderMarkers(preserveView) {
     const tooltip = gridMapMode === "year"
       ? location.name + " · " + gridSelectedYear + ": " + (season ? formatNumber(season.rainfall, 0) + " mm" : "no complete season")
       : gridMapMode === "period"
-        ? location.name + " · recent vs early: " + signed(difference, 0) + " mm/season · 95% interval " +
-          signed(period.low, 0) + " to " + signed(period.high, 0)
+        ? !period || !Number.isFinite(period.difference)
+          ? location.name + " · period comparison unavailable"
+          : location.name + " · 2016–2025 mean " + formatNumber(period.recentMean, 0) +
+            " vs 1981–1990 " + formatNumber(period.earlyMean, 0) + " mm/season · difference " +
+            signed(difference, 0) + " mm/season · " +
+            (Number.isFinite(period.low) && Number.isFinite(period.high)
+              ? "95% interval " + signed(period.low, 0) + " to " + signed(period.high, 0)
+              : "interval unavailable")
         : location.name + (trend ? " · " + signed(trend.slope * 10, 1) + " mm/decade" : "");
     marker.bindTooltip(tooltip, { direction: "top", offset: [0, -7] });
     marker.on("click", function () { selectLocation(location.id); });
