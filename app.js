@@ -4,6 +4,9 @@ const API_BASE = "https://power.larc.nasa.gov/api/temporal/daily/point";
 const CACHE_PREFIX = "astrovanta-monsoon-v1-";
 const BOOTSTRAP_RUNS = 500;
 const BLOCK_LENGTH = 5;
+const REGIONAL_API_BASE = "https://power.larc.nasa.gov/api/temporal/daily/regional";
+const GRID_CACHE_KEY = "astrovanta-central-east-up-grid-v1";
+const GRID_BOUNDS = { latitudeMin: 24.5, latitudeMax: 27.5, longitudeMin: 79.5, longitudeMax: 84 };
 
 const LOCATIONS = [
   { id: "ayodhya", name: "Ayodhya", region: "Uttar Pradesh", lat: 26.79, lon: 82.20, seed: 17 },
@@ -18,11 +21,15 @@ let selectedId = "ayodhya";
 let mapInstance = null;
 let mapMarkers = {};
 let trendById = {};
+let regionalGrid = [];
+let gridLayers = [];
+let gridLoading = false;
 
 document.addEventListener("DOMContentLoaded", function () {
   initMap();
   document.getElementById("download-csv").addEventListener("click", downloadCsv);
   document.getElementById("retry-load").addEventListener("click", loadAllData);
+  document.getElementById("retry-grid").addEventListener("click", loadRegionalGrid);
   loadAllData();
 });
 
@@ -45,6 +52,15 @@ function setStatus(message, kind) {
   status.className = "section-status" + (kind ? " " + kind : "");
   document.getElementById("status-text").textContent = message;
   const retry = document.getElementById("retry-load");
+  if (retry) retry.hidden = kind !== "error";
+}
+
+function setGridStatus(message, kind) {
+  const status = document.getElementById("grid-status");
+  if (!status) return;
+  status.className = "grid-status" + (kind ? " " + kind : "");
+  document.getElementById("grid-status-text").textContent = message;
+  const retry = document.getElementById("retry-grid");
   if (retry) retry.hidden = kind !== "error";
 }
 
@@ -84,7 +100,123 @@ async function loadAllData() {
     document.getElementById("selected-name").textContent = "Data unavailable";
     document.getElementById("selected-region").textContent = "Check your connection and retry.";
     document.getElementById("signal-pill").textContent = "Offline";
+  } finally {
+    loadRegionalGrid();
   }
+}
+
+async function loadRegionalGrid() {
+  if (gridLoading) return;
+  gridLoading = true;
+  setGridStatus("Requesting the NASA POWER daily regional grid…");
+  try {
+    let rawCells = [];
+    try {
+      const cached = JSON.parse(localStorage.getItem(GRID_CACHE_KEY) || "null");
+      if (cached && cached.savedAt && Date.now() - cached.savedAt < 24 * 60 * 60 * 1000 &&
+          Array.isArray(cached.cells) && cached.cells.length) {
+        rawCells = cached.cells;
+      }
+    } catch (_) {}
+
+    if (!rawCells.length) {
+      const url = new URL(REGIONAL_API_BASE);
+      url.searchParams.set("parameters", "PRECTOTCORR");
+      url.searchParams.set("community", "AG");
+      url.searchParams.set("latitude-min", GRID_BOUNDS.latitudeMin);
+      url.searchParams.set("latitude-max", GRID_BOUNDS.latitudeMax);
+      url.searchParams.set("longitude-min", GRID_BOUNDS.longitudeMin);
+      url.searchParams.set("longitude-max", GRID_BOUNDS.longitudeMax);
+      url.searchParams.set("start", String(START_YEAR) + "0101");
+      url.searchParams.set("end", String(END_YEAR) + "1231");
+      url.searchParams.set("format", "JSON");
+      const response = await fetch(url.toString(), { headers: { Accept: "application/json" } });
+      if (!response.ok) throw new Error("NASA POWER regional request failed (" + response.status + ").");
+      const payload = await response.json();
+      rawCells = extractRegionalCells(payload);
+      if (rawCells.length < 10) throw new Error("NASA POWER returned too few regional grid cells.");
+      try {
+        localStorage.setItem(GRID_CACHE_KEY, JSON.stringify({ savedAt: Date.now(), cells: rawCells }));
+      } catch (_) {}
+    }
+
+    if (rawCells.length < 10) throw new Error("No regional grid cells are available.");
+    const analyzed = [];
+    for (let index = 0; index < rawCells.length; index += 1) {
+      const cell = rawCells[index];
+      const seed = (Math.round((cell.lat + 90) * 10000) + Math.round((cell.lon + 180) * 1000)) >>> 0;
+      const location = {
+        id: "grid-" + cell.lat.toFixed(3) + "-" + cell.lon.toFixed(3),
+        name: "POWER grid cell",
+        region: "Central and eastern Uttar Pradesh sample",
+        lat: cell.lat,
+        lon: cell.lon,
+        seed: seed
+      };
+      analyzed.push({
+        location: location,
+        seasons: cell.seasons,
+        trend: bootstrapInterval(cell.seasons, seed)
+      });
+      if ((index + 1) % 4 === 0 && index + 1 < rawCells.length) {
+        setGridStatus("Calculating trend intervals · " + (index + 1) + " of " + rawCells.length + " cells…");
+        await new Promise(function (resolve) { window.setTimeout(resolve, 0); });
+      }
+    }
+    regionalGrid = analyzed;
+    renderRegionalGrid();
+    renderMarkers();
+    setGridStatus("NASA POWER trend grid loaded · " + regionalGrid.length + " cells · hover a cell for its interval", "ready");
+  } catch (error) {
+    regionalGrid = [];
+    renderRegionalGrid();
+    setGridStatus("Regional grid unavailable · city trends remain available. " + (error.message || "Retry the request."), "error");
+  } finally {
+    gridLoading = false;
+  }
+}
+
+function extractRegionalCells(payload) {
+  const features = payload && Array.isArray(payload.features) ? payload.features : [];
+  const cells = [];
+  const seen = new Set();
+  features.forEach(function (feature) {
+    const properties = feature && feature.properties ? feature.properties : {};
+    const parameterSets = [properties.parameter, properties.parameters, properties.data, properties];
+    let daily = null;
+    for (let index = 0; index < parameterSets.length; index += 1) {
+      const set = parameterSets[index];
+      if (set && set.PRECTOTCORR && typeof set.PRECTOTCORR === "object") {
+        daily = set.PRECTOTCORR;
+        break;
+      }
+    }
+    const pairs = [];
+    collectCoordinatePairs(feature && feature.geometry ? feature.geometry.coordinates : null, pairs);
+    if (!daily || !pairs.length) return;
+    const lons = pairs.map(function (pair) { return pair[0]; });
+    const lats = pairs.map(function (pair) { return pair[1]; });
+    const lon = (Math.min.apply(null, lons) + Math.max.apply(null, lons)) / 2;
+    const lat = (Math.min.apply(null, lats) + Math.max.apply(null, lats)) / 2;
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+    const key = lat.toFixed(3) + "|" + lon.toFixed(3);
+    if (seen.has(key)) return;
+    const seasons = buildMonsoonTotals(daily);
+    if (seasons.length < 40) return;
+    seen.add(key);
+    cells.push({ lat: lat, lon: lon, seasons: seasons });
+  });
+  return cells;
+}
+
+function collectCoordinatePairs(value, pairs) {
+  if (!Array.isArray(value)) return;
+  if (value.length >= 2 && Number.isFinite(Number(value[0])) && Number.isFinite(Number(value[1])) &&
+      !Array.isArray(value[0]) && !Array.isArray(value[1])) {
+    pairs.push([Number(value[0]), Number(value[1])]);
+    return;
+  }
+  value.forEach(function (child) { collectCoordinatePairs(child, pairs); });
 }
 
 async function fetchLocation(location) {
@@ -275,6 +407,48 @@ function renderLocations() {
   });
 }
 
+function gridSpacing(values, fallback) {
+  const unique = Array.from(new Set(values.map(function (value) { return Number(value.toFixed(4)); }))).sort(function (a, b) { return a - b; });
+  const steps = [];
+  for (let index = 1; index < unique.length; index += 1) {
+    const step = unique[index] - unique[index - 1];
+    if (step > .05) steps.push(step);
+  }
+  return steps.length ? median(steps) : fallback;
+}
+
+function renderRegionalGrid() {
+  if (!mapInstance) return;
+  gridLayers.forEach(function (layer) { mapInstance.removeLayer(layer); });
+  gridLayers = [];
+  if (!regionalGrid.length) return;
+  const latitudeStep = gridSpacing(regionalGrid.map(function (cell) { return cell.location.lat; }), .5);
+  const longitudeStep = gridSpacing(regionalGrid.map(function (cell) { return cell.location.lon; }), .625);
+  regionalGrid.forEach(function (cell) {
+    const location = cell.location;
+    const trend = cell.trend;
+    const signal = getSignal(trend);
+    const rectangle = L.rectangle([
+      [location.lat - latitudeStep / 2, location.lon - longitudeStep / 2],
+      [location.lat + latitudeStep / 2, location.lon + longitudeStep / 2]
+    ], {
+      color: "#091321",
+      weight: .6,
+      opacity: .72,
+      fillColor: signalColor(signal),
+      fillOpacity: .48
+    }).addTo(mapInstance);
+    const label = signal === "up" ? "Increasing" : signal === "down" ? "Decreasing" : "Unclear";
+    rectangle.bindTooltip(
+      "POWER grid cell · " + location.lat.toFixed(2) + "°N, " + location.lon.toFixed(2) +
+      "°E<br>" + label + " · " + signed(trend.slope * 10, 1) + " mm/decade<br>95% interval: " +
+      signed(trend.low * 10, 1) + " to " + signed(trend.high * 10, 1) + " mm/decade",
+      { sticky: true }
+    );
+    gridLayers.push(rectangle);
+  });
+}
+
 function renderMarkers() {
   if (!mapInstance) return;
   Object.keys(mapMarkers).forEach(function (id) { mapInstance.removeLayer(mapMarkers[id]); });
@@ -286,16 +460,18 @@ function renderMarkers() {
     const marker = L.circleMarker([location.lat, location.lon], {
       radius: location.id === selectedId ? 9 : 7,
       color: "#091321",
-      weight: 2,
+      weight: 2.2,
       fillColor: signalColor(signal),
-      fillOpacity: .95
+      fillOpacity: 1
     }).addTo(mapInstance);
     marker.bindTooltip(location.name + (trend ? " · " + signed(trend.slope * 10, 1) + " mm/decade" : ""), { direction: "top", offset: [0, -7] });
     marker.on("click", function () { selectLocation(location.id); });
     mapMarkers[location.id] = marker;
   });
-  const bounds = L.latLngBounds(LOCATIONS.map(function (location) { return [location.lat, location.lon]; }));
-  mapInstance.fitBounds(bounds.pad(.22), { maxZoom: 7 });
+  const extentPoints = LOCATIONS.map(function (location) { return [location.lat, location.lon]; })
+    .concat(regionalGrid.map(function (cell) { return [cell.location.lat, cell.location.lon]; }));
+  const bounds = L.latLngBounds(extentPoints);
+  mapInstance.fitBounds(bounds.pad(.08), { maxZoom: 7 });
   window.setTimeout(function () { mapInstance.invalidateSize(); }, 100);
 }
 
