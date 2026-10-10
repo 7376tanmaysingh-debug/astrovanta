@@ -177,30 +177,47 @@ async function loadRegionalGrid() {
   }
 }
 
+function collectApiMessages(value, output) {
+  if (typeof value === "string") {
+    output.push(value);
+    return;
+  }
+  if (Array.isArray(value)) {
+    value.forEach(function (item) { collectApiMessages(item, output); });
+    return;
+  }
+  if (!value || typeof value !== "object") return;
+  const message = value.Message || value.message || value.detail || value.error;
+  if (message) {
+    collectApiMessages(message, output);
+    return;
+  }
+  Object.keys(value).filter(function (key) {
+    return /message|error|detail/i.test(key);
+  }).forEach(function (key) { collectApiMessages(value[key], output); });
+}
+
 function describeApiError(response, responseBody, label) {
   let detail = "";
   try {
     const payload = JSON.parse(responseBody);
-    const sources = [
-      payload && payload.header && payload.header.messages,
+    const messages = [];
+    [
       payload && payload.messages,
+      payload && payload.Messages,
       payload && payload.errors,
-      payload && payload.detail
-    ];
-    detail = sources.flatMap(function (value) {
-      if (Array.isArray(value)) return value.map(function (item) {
-        return typeof item === "string" ? item : JSON.stringify(item);
-      });
-      if (typeof value === "string") return [value];
-      return [];
-    }).filter(Boolean).join(" ");
+      payload && payload.Errors,
+      payload && payload.detail,
+      payload && payload.message,
+      payload && payload.Message
+    ].forEach(function (value) { collectApiMessages(value, messages); });
+    detail = Array.from(new Set(messages)).join(" ");
   } catch (_) {
     detail = String(responseBody || "").replace(/\\s+/g, " ").trim();
   }
   detail = detail.slice(0, 280);
   return label + " (" + response.status + ")" + (detail ? ": " + detail : ".");
 }
-
 function extractRegionalCells(payload) {
   const features = payload && Array.isArray(payload.features) ? payload.features : [];
   const cells = [];
